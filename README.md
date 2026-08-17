@@ -29,10 +29,19 @@
 git clone https://github.com/Davronkhuja/API-tester.git
 cd API-tester
 pip install -r requirements.txt
-python api_runner.py
 ```
 
-Brauzer avtomatik ochiladi: **http://127.0.0.1:5050**
+### Ishga tushirish
+
+**macOS / Linux** — Finder da `run.command` faylini ikki marta bosing:
+- Server avtomatik ishga tushadi
+- Brauzer avtomatik ochiladi (`http://127.0.0.1:5050`)
+- Terminal oynasini yopsangiz — server to'xtaydi
+
+**Qo'lda:**
+```bash
+python3 api_runner.py
+```
 
 ---
 
