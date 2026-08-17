@@ -215,7 +215,7 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>API Runner — Batch so'rov yuborish vositasi</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='36' y2='36' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%235B8DF8'/%3E%3Cstop offset='100%25' stop-color='%233A60D9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='36' height='36' rx='9' fill='url(%23g)'/%3E%3Crect x='7' y='10' width='9' height='2' rx='1' fill='white' opacity='.75'/%3E%3Crect x='7' y='14' width='9' height='2' rx='1' fill='white' opacity='.75'/%3E%3Crect x='7' y='18' width='9' height='2' rx='1' fill='white' opacity='.75'/%3E%3Crect x='7' y='22' width='9' height='2' rx='1' fill='white' opacity='.75'/%3E%3Cpath d='M19 18l6 0M22 15l3 3-3 3' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0' y1='0' x2='36' y2='36' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%232563eb'/%3E%3Cstop offset='100%25' stop-color='%237c3aed'/%3E%3C/linearGradient%3E%3ClinearGradient id='bolt' x1='11' y1='5' x2='25' y2='31' gradientUnits='userSpaceOnUse'%3E%3Cstop offset='0%25' stop-color='%23ffffff'/%3E%3Cstop offset='100%25' stop-color='%23bfdbfe'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='36' height='36' rx='9' fill='url(%23bg)'/%3E%3Crect width='36' height='36' rx='9' fill='white' opacity='0.06'/%3E%3Cpath d='M22,5 L11,20 L19,20 L14,31 L25,16 L17,16 Z' fill='url(%23bolt)'/%3E%3C/svg%3E">
 <style>
 /* ── RESET & ROOT ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -969,16 +969,17 @@ pre.resp-pre {
     <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
       <defs>
         <linearGradient id="hg" x1="0" y1="0" x2="34" y2="34" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stop-color="#5B8DF8"/>
-          <stop offset="100%" stop-color="#3A60D9"/>
+          <stop offset="0%" stop-color="#2563eb"/>
+          <stop offset="100%" stop-color="#7c3aed"/>
+        </linearGradient>
+        <linearGradient id="hbolt" x1="10" y1="4" x2="24" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="100%" stop-color="#bfdbfe"/>
         </linearGradient>
       </defs>
       <rect width="34" height="34" rx="9" fill="url(#hg)"/>
-      <rect x="7" y="10" width="9" height="2" rx="1" fill="white" opacity=".7"/>
-      <rect x="7" y="14" width="9" height="2" rx="1" fill="white" opacity=".7"/>
-      <rect x="7" y="18" width="9" height="2" rx="1" fill="white" opacity=".7"/>
-      <rect x="7" y="22" width="9" height="2" rx="1" fill="white" opacity=".7"/>
-      <path d="M19 18h7M23 15l3 3-3 3" stroke="white" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect width="34" height="34" rx="9" fill="white" opacity="0.06"/>
+      <path d="M21,5 L10,19 L18,19 L13,29 L24,15 L16,15 Z" fill="url(#hbolt)"/>
     </svg>
     <div class="app-name-group">
       <span class="app-name">API Runner</span>
