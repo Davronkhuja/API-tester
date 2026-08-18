@@ -806,19 +806,42 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .select-input:focus { border-color: var(--primary); }
 .body-wrap { position: relative; }
-.body-textarea {
-  width: 100%; min-height: 150px; max-height: 60vh; padding: 11px;
+.body-editor-wrap {
+  position: relative;
+  height: 160px; min-height: 120px; max-height: 60vh;
   border: 1px solid var(--border-d); border-radius: var(--rad);
-  font-family: var(--mono); font-size: 12.5px; outline: none; resize: vertical; line-height: 1.6;
-  box-sizing: border-box;
+  background: #1a2236;
+  overflow: hidden; resize: vertical;
+  box-sizing: border-box; transition: border-color .15s, box-shadow .15s;
 }
-.body-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,126,247,.1); }
+.body-editor-wrap:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,126,247,.1);
+}
+.body-pre {
+  position: absolute; top: 0; left: 0;
+  margin: 0; padding: 11px;
+  width: 100%; min-height: 100%;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-all;
+  pointer-events: none; color: #e2e8f0;
+  box-sizing: border-box; overflow: hidden;
+}
+.body-textarea {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  padding: 11px; border: none; outline: none; resize: none;
+  background: transparent; color: transparent; caret-color: #e2e8f0;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+  box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
+}
+.body-textarea::placeholder { color: rgba(226,232,240,.3); }
 .btn-beautify {
   position: absolute; top: 7px; right: 9px;
   padding: 3px 9px; font-size: 11px; font-weight: 600; letter-spacing: .3px;
-  border: 1px solid var(--border-d); border-radius: 5px;
-  background: var(--surface); color: var(--muted); cursor: pointer;
-  transition: all .15s; display: none;
+  border: 1px solid rgba(255,255,255,.15); border-radius: 5px;
+  background: rgba(255,255,255,.08); color: rgba(226,232,240,.7); cursor: pointer;
+  transition: all .15s; display: none; z-index: 10;
 }
 .btn-beautify:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .btn-beautify.visible { display: block; }
@@ -1329,10 +1352,13 @@ pre.resp-pre {
           </div>
         </div>
         <div class="body-wrap">
-          <textarea id="body" class="body-textarea" placeholder='{
+          <div class="body-editor-wrap" id="bodyEditorWrap">
+            <pre class="body-pre" id="bodyPre"></pre>
+            <textarea id="body" class="body-textarea" placeholder='{
   "id": "{{id}}",
   "name": "{{name}}"
 }'></textarea>
+          </div>
           <button class="btn-beautify" id="btnBeautify" onclick="beautifyBody()" title="JSON ni chiroyli formatlash">✦ Beautify</button>
         </div>
       </div>
@@ -1494,21 +1520,39 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // ── BODY TEXTAREA: Tab key inserts spaces, not focus-jump ──
-const bodyTA = document.getElementById('body');
+const bodyTA  = document.getElementById('body');
+const bodyPre = document.getElementById('bodyPre');
+
+// Tab key → 2 spaces
 bodyTA.addEventListener('keydown', e => {
   if (e.key === 'Tab') {
     e.preventDefault();
     const s = bodyTA.selectionStart, end = bodyTA.selectionEnd;
     bodyTA.value = bodyTA.value.slice(0, s) + '  ' + bodyTA.value.slice(end);
     bodyTA.selectionStart = bodyTA.selectionEnd = s + 2;
+    updateBodyHL();
   }
 });
+
+// Scroll sync: pre follows textarea
+bodyTA.addEventListener('scroll', () => {
+  bodyPre.style.top = -bodyTA.scrollTop + 'px';
+});
+
+// Highlight update
+function updateBodyHL() {
+  const val = bodyTA.value;
+  const bt  = document.getElementById('bodyType').value;
+  bodyPre.innerHTML = (bt === 'json' ? syntaxHL(val) : eh(val)) + '\n';
+}
+bodyTA.addEventListener('input', () => { updateBodyHL(); checkDirty(); });
 
 // ── BEAUTIFY button: show only when bodyType === json ──
 const btnBeautify = document.getElementById('btnBeautify');
 function updateBeautifyVisibility() {
   const t = document.getElementById('bodyType').value;
   btnBeautify.classList.toggle('visible', t === 'json');
+  updateBodyHL();
 }
 document.getElementById('bodyType').addEventListener('change', updateBeautifyVisibility);
 updateBeautifyVisibility();
@@ -1518,9 +1562,8 @@ function beautifyBody() {
     const raw = bodyTA.value.trim();
     if (!raw) return;
     bodyTA.value = JSON.stringify(JSON.parse(raw), null, 2);
-    bodyTA.style.transition = 'box-shadow .2s';
-    bodyTA.style.boxShadow = '0 0 0 3px rgba(79,126,247,.2)';
-    setTimeout(() => { bodyTA.style.boxShadow = ''; }, 600);
+    updateBodyHL();
+    bodyTA.scrollTop = 0;
   } catch {
     showToast('JSON formati noto\'g\'ri', 'error');
   }
@@ -1999,9 +2042,9 @@ function newRequest() {
   addKvRow('paramsTable');
   addKvRow('headersTable');
   renderTree();
+  updateBodyHL();
   _savedSnapshot = null;
   btnSave.disabled = true;
-  // focus URL
   document.getElementById('url').focus();
 }
 
@@ -2030,6 +2073,8 @@ function loadRequest(rid) {
   if (!(r.headers || []).length) addKvRow('headersTable');
 
   renderTree();
+  updateBodyHL();
+  updateBeautifyVisibility();
   markSaved();
 }
 
