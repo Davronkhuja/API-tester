@@ -395,39 +395,109 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .sb-resizer-toggle:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-/* Top action buttons */
-.sb-actions {
-  display: flex;
-  gap: 6px;
-  padding: 10px 10px 0;
-}
-.sb-btn {
-  flex: 1;
+/* ── SIDEBAR TAB BAR ──────────────────────────────────────── */
+.sb-tab-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 7px 6px;
-  border-radius: 6px;
-  border: 1px solid;
+  gap: 2px;
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  flex-shrink: 0;
+}
+.sb-tab-ico {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px;
   cursor: pointer;
-  font-size: 11.5px;
-  font-weight: 600;
-  transition: all .15s;
-  white-space: nowrap;
+  color: rgba(255,255,255,.28);
+  background: transparent; border: none;
+  transition: all .15s; position: relative;
 }
-.sb-btn-req {
-  background: rgba(79,126,247,.18);
-  border-color: rgba(79,126,247,.35);
-  color: #93B4FC;
+.sb-tab-ico:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.65); }
+.sb-tab-ico.active { background: rgba(79,126,247,.22); color: #93B4FC; }
+.sb-tab-ico.active::after {
+  content: ''; position: absolute; bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  width: 16px; height: 2px; border-radius: 2px;
+  background: var(--primary);
 }
-.sb-btn-req:hover { background: rgba(79,126,247,.3); border-color: rgba(79,126,247,.6); color: #fff; }
-.sb-btn-folder {
-  background: rgba(255,255,255,.05);
-  border-color: rgba(255,255,255,.1);
-  color: rgba(255,255,255,.5);
+
+/* ── SIDEBAR PANELS ──────────────────────────────────────── */
+.sb-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; min-height: 0; }
+.sb-panel.active { display: flex; }
+.sb-panel-toolbar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 8px 0; flex-shrink: 0;
 }
-.sb-btn-folder:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
+.sb-panel-label {
+  flex: 1; font-size: 10px; font-weight: 700; letter-spacing: .8px;
+  text-transform: uppercase; color: rgba(255,255,255,.22); padding-left: 4px;
+}
+.sb-tool-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; border-radius: 6px;
+  cursor: pointer; color: rgba(255,255,255,.35); transition: all .12s;
+}
+.sb-tool-btn:hover { background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); }
+.sb-tool-btn.danger:hover { background: rgba(220,38,38,.2); color: #FCA5A5; }
+
+/* ── ENV LIST (sidebar) ───────────────────────────────────── */
+.sb-env-list {
+  flex: 1; overflow-y: auto; padding: 6px 6px 12px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+.sb-env-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; transition: background .12s; position: relative;
+}
+.sb-env-item:hover { background: rgba(255,255,255,.06); }
+.sb-env-item.active-env { background: rgba(79,126,247,.17); }
+.sb-env-item.active-env::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 3px; background: var(--primary); border-radius: 0 3px 3px 0;
+}
+.sb-env-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2);
+}
+.sb-env-item.active-env .sb-env-dot { background: #4ade80; border-color: #22c55e; }
+.sb-env-name {
+  flex: 1; font-size: 13px; font-weight: 500;
+  color: rgba(255,255,255,.7); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.sb-env-item.active-env .sb-env-name { color: #fff; }
+.sb-env-acts { display: none; gap: 1px; flex-shrink: 0; }
+.sb-env-item:hover .sb-env-acts { display: flex; }
+
+/* ── HISTORY LIST (sidebar) ───────────────────────────────── */
+.sb-hist-list {
+  flex: 1; overflow-y: auto; padding: 4px 6px 12px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+.sb-hist-item {
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 8px 10px; border-radius: 6px;
+  cursor: pointer; transition: background .12s;
+}
+.sb-hist-item:hover { background: rgba(255,255,255,.06); }
+.sb-hist-info { flex: 1; min-width: 0; }
+.sb-hist-url {
+  font-size: 11.5px; color: rgba(255,255,255,.7);
+  font-family: var(--mono); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.sb-hist-meta { font-size: 10px; color: rgba(255,255,255,.25); margin-top: 2px; }
+.sb-hist-del {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.2); font-size: 13px; padding: 1px 4px;
+  border-radius: 3px; flex-shrink: 0; opacity: 0; transition: opacity .12s;
+}
+.sb-hist-item:hover .sb-hist-del { opacity: 1; }
+.sb-hist-del:hover { color: #FCA5A5; background: rgba(220,38,38,.2); }
 
 /* Search */
 .sb-search-wrap {
@@ -1370,20 +1440,6 @@ pre.resp-pre {
       Real-time natija
     </span>
   </div>
-  <button class="hdr-icon-btn" onclick="openEnvDrawer()" title="Muhit o'zgaruvchilari">
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
-      <path d="M6.5 3.5v1M6.5 8.5v1M3.5 6.5h1M8.5 6.5h1M4.6 4.6l.7.7M7.7 7.7l.7.7M4.6 8.4l.7-.7M7.7 5.3l.7-.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-    </svg>
-    ENV
-  </button>
-  <button class="hdr-icon-btn" onclick="openHistDrawer()" title="So'rovlar tarixi">
-    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
-      <path d="M6.5 3.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Tarix
-  </button>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Qorong'i / Yorqin rejim">🌙</button>
 </header>
 
@@ -1467,46 +1523,94 @@ pre.resp-pre {
 <!-- ─── SIDEBAR ─────────────────────────────────────────── -->
 <aside class="sidebar">
 
-  <!-- Top buttons -->
-  <div class="sb-actions" style="flex-wrap:wrap;">
-    <button class="sb-btn sb-btn-req" onclick="newRequest()">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Icon tab bar -->
+  <div class="sb-tab-bar">
+    <button class="sb-tab-ico active" id="sbt-collections" onclick="switchSbPanel('collections')" title="Collections">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+        <rect x="1.5" y="1.5" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="9.5" y="1.5" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="1.5" y="9.5" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
+        <rect x="9.5" y="9.5" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/>
       </svg>
-      Yangi so'rov
     </button>
-    <button class="sb-btn sb-btn-folder" onclick="openFolderModal(null)">
-      <svg width="13" height="12" viewBox="0 0 13 12" fill="none">
-        <path d="M1 3a1 1 0 011-1h3l1.5 1.5H11a1 1 0 011 1V10a1 1 0 01-1 1H2a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-        <path d="M6.5 5.5v3M5 7h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+    <button class="sb-tab-ico" id="sbt-environments" onclick="switchSbPanel('environments')" title="Environments">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+        <circle cx="8.5" cy="8.5" r="7" stroke="currentColor" stroke-width="1.4"/>
+        <ellipse cx="8.5" cy="8.5" rx="3" ry="7" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M1.5 8.5h14" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M2.5 5.5h12M2.5 11.5h12" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".5"/>
       </svg>
-      Papka
     </button>
-    <button class="sb-btn sb-btn-import" onclick="triggerPostmanImport()" title="Postman Collection v2.1 import qilish" style="flex:1;">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M6 1v7M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M1 9.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    <button class="sb-tab-ico" id="sbt-history" onclick="switchSbPanel('history')" title="Tarix">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+        <circle cx="8.5" cy="8.5" r="7" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M8.5 5v3.5l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 3.5L1.5 2M3 13.5L1.5 15" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".4"/>
       </svg>
-      Import
     </button>
-    <input type="file" id="postmanFile" accept=".json" style="display:none" onchange="importPostman(this.files[0])">
   </div>
 
-  <!-- Search -->
-  <div class="sb-search-wrap">
-    <svg class="sb-search-ico" width="12" height="12" viewBox="0 0 12 12" fill="none">
-      <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.3"/>
-      <path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
-    </svg>
-    <input class="sb-search" id="sbSearch" placeholder="Qidirish..." oninput="filterSidebar(this.value)">
-  </div>
-
-  <!-- Tree -->
-  <div class="sb-tree" id="sbTree">
-    <div class="sb-empty">
-      <div class="sb-empty-ico">📂</div>
-      <div>Hali so'rovlar yo'q.<br>So'rov yaratib saqlang.</div>
+  <!-- ── COLLECTIONS PANEL ─────────────────── -->
+  <div class="sb-panel active" id="panel-collections">
+    <div class="sb-panel-toolbar">
+      <div class="sb-search-wrap" style="flex:1;padding:0;">
+        <svg class="sb-search-ico" width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="5" cy="5" r="3.5" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M8 8l2.5 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <input class="sb-search" id="sbSearch" placeholder="Qidirish..." oninput="filterSidebar(this.value)" style="padding-left:26px;">
+      </div>
+      <button class="sb-tool-btn" onclick="newRequest()" title="Yangi so'rov">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="sb-tool-btn" onclick="openFolderModal(null)" title="Yangi papka">
+        <svg width="14" height="13" viewBox="0 0 14 13" fill="none">
+          <path d="M1 3a1 1 0 011-1h3.5l1.5 1.5H12a1 1 0 011 1V11a1 1 0 01-1 1H2a1 1 0 01-1-1V3z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M7 5.5v3M5.5 7h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="sb-tool-btn" onclick="triggerPostmanImport()" title="Postman import">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1v8M4 6l2.5 3L9 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M1 10.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <input type="file" id="postmanFile" accept=".json" style="display:none" onchange="importPostman(this.files[0])">
     </div>
+    <div class="sb-tree" id="sbTree">
+      <div class="sb-empty">
+        <div class="sb-empty-ico">📂</div>
+        <div>Hali so'rovlar yo'q.<br>So'rov yaratib saqlang.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ENVIRONMENTS PANEL ────────────────── -->
+  <div class="sb-panel" id="panel-environments">
+    <div class="sb-panel-toolbar">
+      <span class="sb-panel-label">Environments</span>
+      <button class="sb-tool-btn" onclick="createEnvNamed()" title="Yangi environment">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M6.5 1v11M1 6.5h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sb-env-list" id="sbEnvList"></div>
+  </div>
+
+  <!-- ── HISTORY PANEL ─────────────────────── -->
+  <div class="sb-panel" id="panel-history">
+    <div class="sb-panel-toolbar">
+      <span class="sb-panel-label">Tarix</span>
+      <button class="sb-tool-btn danger" onclick="clearHistory()" title="Tarixni tozalash">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M2 3.5h9M5 3.5V2h3v1.5M3 3.5l.5 7h6l.5-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="sb-hist-list" id="sbHistList"></div>
   </div>
 
 </aside>
@@ -2078,7 +2182,7 @@ async function startRun() {
     concurrency: parseInt(document.getElementById('concurrency').value) || 1,
     retry_count: parseInt(document.getElementById('retryCount').value) || 0,
     ssl_verify: document.getElementById('sslVerify').checked,
-    env_vars: getEnvVars(),
+    env_vars: getActiveEnvVars(),
     multipart_fields: bt === 'multipart' ? getKv('multipartTable') : [],
     rows,
   };
@@ -3069,14 +3173,147 @@ function addEnvRow(key='', val='') {
     wrap.appendChild(row);
   }
 }
+// ════════════════════════════════════════════════════════════
+// SIDEBAR PANEL SWITCHING
+// ════════════════════════════════════════════════════════════
+function switchSbPanel(name) {
+  document.querySelectorAll('.sb-tab-ico').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sb-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('sbt-' + name).classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'environments') renderSbEnvList();
+  if (name === 'history')      renderSbHistList();
+}
+
+// ════════════════════════════════════════════════════════════
+// NAMED ENVIRONMENTS (sidebar)
+// ════════════════════════════════════════════════════════════
+const ENVS_KEY        = 'apiRunnerEnvs';
+const ACTIVE_ENV_KEY  = 'apiRunnerActiveEnvId';
+
+function getEnvs() {
+  try { return JSON.parse(localStorage.getItem(ENVS_KEY) || '[]'); } catch { return []; }
+}
+function saveEnvs(envs) { localStorage.setItem(ENVS_KEY, JSON.stringify(envs)); }
+function getActiveEnvId() { return localStorage.getItem(ACTIVE_ENV_KEY) || null; }
+function setActiveEnvId(id) {
+  if (id) localStorage.setItem(ACTIVE_ENV_KEY, id);
+  else localStorage.removeItem(ACTIVE_ENV_KEY);
+}
+function getActiveEnvVars() {
+  const id  = getActiveEnvId();
+  const env = getEnvs().find(e => e.id === id);
+  if (!env) return {};
+  const vars = {};
+  (env.vars || []).forEach(({key, val}) => { if (key) vars[key] = val; });
+  return vars;
+}
+
+function renderSbEnvList() {
+  const list  = document.getElementById('sbEnvList');
+  const envs  = getEnvs();
+  const actId = getActiveEnvId();
+  if (!envs.length) {
+    list.innerHTML = '<div class="sb-empty" style="font-size:12px;">Environment yo\'q.<br>+ tugmasi bilan qo\'shing.</div>';
+    return;
+  }
+  list.innerHTML = envs.map(e => `
+    <div class="sb-env-item ${e.id === actId ? 'active-env' : ''}" onclick="activateEnv('${ea(e.id)}')">
+      <span class="sb-env-dot"></span>
+      <span class="sb-env-name">${eh(e.name)}</span>
+      <span class="sb-env-acts">
+        <button class="sb-act" onclick="event.stopPropagation();editEnv('${ea(e.id)}')" title="Tahrirlash">✎</button>
+        <button class="sb-act del" onclick="event.stopPropagation();deleteEnvNamed('${ea(e.id)}')" title="O'chirish">✕</button>
+      </span>
+    </div>`).join('');
+}
+
+function activateEnv(id) {
+  const actId = getActiveEnvId();
+  setActiveEnvId(actId === id ? null : id);  // toggle
+  renderSbEnvList();
+  const env = getEnvs().find(e => e.id === id);
+  showToast(actId === id ? 'Environment o\'chirildi' : `"${env?.name}" faollashtirildi`, 'info');
+}
+
+function createEnvNamed() {
+  const name = prompt('Environment nomi:');
+  if (!name || !name.trim()) return;
+  const envs = getEnvs();
+  envs.push({ id: 'env_' + Date.now(), name: name.trim(), vars: [] });
+  saveEnvs(envs);
+  renderSbEnvList();
+}
+
+function editEnv(id) {
+  const envs = getEnvs();
+  const env  = envs.find(e => e.id === id);
+  if (!env) return;
+  // Repurpose the existing envDrawer for editing this named env
+  _editingEnvId = id;
+  const wrap = document.getElementById('envList');
+  wrap.innerHTML = `<p class="env-hint">Tahrirlash: <b>${eh(env.name)}</b></p>`;
+  (env.vars || []).forEach(({key, val}) => addEnvRow(key, val));
+  openEnvDrawer();
+}
+
+function deleteEnvNamed(id) {
+  showConfirm("Bu environment o'chirilsinmi?", "O'chirish", () => {
+    let envs = getEnvs().filter(e => e.id !== id);
+    saveEnvs(envs);
+    if (getActiveEnvId() === id) setActiveEnvId(null);
+    renderSbEnvList();
+  });
+}
+
+let _editingEnvId = null;
+
+function saveEnvToStorage() {
+  const rows = document.querySelectorAll('#envList .env-row');
+  const vars = [];
+  rows.forEach(row => {
+    const key = row.querySelector('.env-key')?.value?.trim() || '';
+    const val = row.querySelector('.env-val')?.value || '';
+    if (key) vars.push({key, val});
+  });
+  if (_editingEnvId) {
+    const envs = getEnvs();
+    const env  = envs.find(e => e.id === _editingEnvId);
+    if (env) { env.vars = vars; saveEnvs(envs); }
+  } else {
+    // legacy single-env save
+    const obj = {};
+    vars.forEach(({key, val}) => { obj[key] = val; });
+    localStorage.setItem(ENV_KEY, JSON.stringify(obj));
+  }
+}
+
+function loadEnvFromStorage() {
+  // migrate old flat env vars if any
+  try {
+    const old = JSON.parse(localStorage.getItem(ENV_KEY) || '{}');
+    const entries = Object.entries(old);
+    if (entries.length) {
+      const envs = getEnvs();
+      if (!envs.some(e => e.name === 'Default')) {
+        envs.unshift({ id: 'env_default', name: 'Default', vars: entries.map(([key, val]) => ({key, val})) });
+        saveEnvs(envs);
+        localStorage.removeItem(ENV_KEY);
+      }
+    }
+  } catch {}
+}
+
 function openEnvDrawer() {
   closeAllDrawers();
   document.getElementById('envDrawer').classList.add('open');
   document.getElementById('drawerBackdrop').style.display = 'block';
 }
 function closeEnvDrawer() {
+  _editingEnvId = null;
   document.getElementById('envDrawer').classList.remove('open');
   document.getElementById('drawerBackdrop').style.display = 'none';
+  renderSbEnvList();
 }
 loadEnvFromStorage();
 
@@ -3098,38 +3335,40 @@ function addToHistory(entry) {
   renderHistory();
 }
 function clearHistory() {
-  if (!confirm("Barcha tarixi o'chirilsinmi?")) return;
-  localStorage.removeItem(HIST_KEY);
-  renderHistory();
+  showConfirm("Barcha tarix o'chirilsinmi?", "O'chirish", () => {
+    localStorage.removeItem(HIST_KEY);
+    renderSbHistList();
+  });
 }
-function renderHistory() {
-  const list = document.getElementById('histList');
+function renderSbHistList() {
+  const list = document.getElementById('sbHistList');
+  if (!list) return;
   const arr = getRunHistory();
   if (!arr.length) {
-    list.innerHTML = '<div class="hist-empty">Hali tarix yo\'q</div>';
+    list.innerHTML = '<div class="sb-empty" style="font-size:12px;">Hali tarix yo\'q.<br>So\'rov yuborganingizdan keyin ko\'rinadi.</div>';
     return;
   }
   list.innerHTML = arr.map(x => {
     const t = new Date(x.timestamp);
-    const tstr = t.toLocaleDateString() + ' ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    const shortUrl = x.url.replace(/^https?:\/\//, '').slice(0, 60);
-    return `<div class="hist-item" onclick="loadFromHistory('${ea(JSON.stringify(x))}')">
-      <span class="mpill mpill-${ea(x.method)}">${eh(x.method)}</span>
-      <div class="hist-item-info">
-        <div class="hist-item-url">${eh(shortUrl)}</div>
-        <div class="hist-item-meta">${eh(tstr)}</div>
+    const tstr = t.toLocaleDateString('uz') + ' ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const shortUrl = (x.url || '').replace(/^https?:\/\//, '').slice(0, 55);
+    return `<div class="sb-hist-item" onclick="loadFromHistory(${ea(JSON.stringify(JSON.stringify(x)))})">
+      <span class="mpill mpill-${ea(x.method || 'GET')}">${eh(x.method || 'GET')}</span>
+      <div class="sb-hist-info">
+        <div class="sb-hist-url">${eh(shortUrl)}</div>
+        <div class="sb-hist-meta">${eh(tstr)}</div>
       </div>
-      <button class="hist-item-del" onclick="event.stopPropagation();deleteHistItem(${x.id})" title="O'chirish">×</button>
+      <button class="sb-hist-del" onclick="event.stopPropagation();deleteHistItem(${x.id})" title="O'chirish">×</button>
     </div>`;
   }).join('');
 }
+function renderHistory() { renderSbHistList(); }   // backward compat
 function loadFromHistory(jsonStr) {
   try {
     const x = JSON.parse(jsonStr);
     document.getElementById('method').value = x.method || 'GET';
     document.getElementById('url').value = x.url || '';
     updateMethodColor(); checkDirty();
-    closeHistDrawer();
     showToast('Tarixdan yuklandi', 'info');
   } catch {}
 }
