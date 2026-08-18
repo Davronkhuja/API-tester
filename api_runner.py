@@ -619,6 +619,63 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .rp-close:hover { background: var(--error-bg); border-color: var(--error); color: var(--error); }
 
+/* ── CURL DRAWER ─────────────────────────────────────────── */
+.curl-drawer {
+  position: fixed;
+  right: 0; top: 58px; bottom: 0;
+  width: 480px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -6px 0 28px rgba(0,0,0,.12);
+  display: flex; flex-direction: column;
+  z-index: 300;
+  transform: translateX(100%);
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+}
+.curl-drawer.open { transform: translateX(0); }
+.curl-drawer-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.curl-drawer-title {
+  font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
+}
+.curl-drawer-body {
+  flex: 1; overflow-y: auto; padding: 16px;
+}
+.curl-code {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  min-height: 80px;
+}
+.curl-code .c-method  { color: #38bdf8; font-weight: 700; }
+.curl-code .c-url     { color: #a3e635; }
+.curl-code .c-flag    { color: #f472b6; }
+.curl-code .c-hkey    { color: #fb923c; }
+.curl-code .c-hval    { color: #fde68a; }
+.curl-code .c-data    { color: #c4b5fd; }
+.btn-copy-curl {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border-d); border-radius: 6px;
+  background: var(--bg); color: var(--text); cursor: pointer;
+  transition: all .15s; margin-left: auto;
+}
+.btn-copy-curl:hover  { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-copy-curl.copied { background: #dcfce7; color: #16a34a; border-color: #86efac; }
+
 .rp-body {
   flex: 1;
   overflow-y: auto;
@@ -1385,6 +1442,24 @@ pre.resp-pre {
 </div><!-- /.content-area -->
 </div><!-- /.layout -->
 
+<!-- ── CURL DRAWER ─────────────────────────────────────────── -->
+<div class="curl-drawer" id="curlDrawer">
+  <div class="curl-drawer-header">
+    <span class="curl-drawer-title">cURL</span>
+    <button class="btn-copy-curl" id="btnCopyCurl" onclick="copyCurlFromDrawer()">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <rect x="1" y="4" width="7" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M4 4V2.5A1.5 1.5 0 015.5 1h5A1.5 1.5 0 0112 2.5v8A1.5 1.5 0 0110.5 12H9" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+      Nusxalash
+    </button>
+    <button class="rp-close" onclick="closeCurlDrawer()" title="Yopish">×</button>
+  </div>
+  <div class="curl-drawer-body">
+    <pre class="curl-code" id="curlOutput"></pre>
+  </div>
+</div>
+<div class="curl-backdrop" id="curlBackdrop" onclick="closeCurlDrawer()" style="display:none;position:fixed;inset:0;z-index:299;"></div>
 
 <script>
 // ════════════════════════════════════════════════════════════
@@ -2463,21 +2538,50 @@ function buildCurl() {
   return parts.join(' \\\n');
 }
 
+function highlightCurl(raw) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return raw.split('\n').map((line, i) => {
+    if (i === 0) {
+      return line.replace(/^(curl)\s+(-X\s+)?(\w+)?\s+('.*?'|".*?"|\S+)/, (_, c, x, m, u) =>
+        `<span class="c-flag">${esc(c)}</span>` +
+        (x ? ` <span class="c-flag">${esc(x.trim())}</span>` : '') +
+        (m ? ` <span class="c-method">${esc(m)}</span>` : '') +
+        ` <span class="c-url">${esc(u)}</span>`
+      );
+    }
+    return line
+      .replace(/(-H\s+)('([^:]+):\s*(.+?)')/g, (_, f, q, k, v) =>
+        `  <span class="c-flag">-H</span> '<span class="c-hkey">${esc(k)}</span>: <span class="c-hval">${esc(v)}</span>'`)
+      .replace(/(-d\s+)('.*')/g, (_, f, d) =>
+        `  <span class="c-flag">-d</span> <span class="c-data">${esc(d)}</span>`);
+  }).join('\n');
+}
+
 function copyCurl() {
   const curl = buildCurl();
   if (!curl) { showToast('URL kiriting', 'error'); return; }
+  const drawer   = document.getElementById('curlDrawer');
+  const output   = document.getElementById('curlOutput');
+  const backdrop = document.getElementById('curlBackdrop');
+  output.innerHTML = highlightCurl(curl);
+  drawer.classList.add('open');
+  backdrop.style.display = 'block';
+}
+
+function closeCurlDrawer() {
+  document.getElementById('curlDrawer').classList.remove('open');
+  document.getElementById('curlBackdrop').style.display = 'none';
+}
+
+function copyCurlFromDrawer() {
+  const curl = buildCurl();
+  if (!curl) return;
   navigator.clipboard.writeText(curl).then(() => {
-    const btn = document.getElementById('btnCurl');
+    const btn = document.getElementById('btnCopyCurl');
     btn.classList.add('copied');
-    btn.querySelector('svg').style.display = 'none';
-    const old = btn.innerHTML;
+    const prev = btn.innerHTML;
     btn.innerHTML = '✓ Nusxalandi';
-    setTimeout(() => {
-      btn.innerHTML = old;
-      btn.querySelector('svg').style.display = '';
-      btn.classList.remove('copied');
-    }, 1800);
-    showToast('cURL clipboard ga nusxalandi', 'success');
+    setTimeout(() => { btn.innerHTML = prev; btn.classList.remove('copied'); }, 1800);
   }).catch(() => showToast('Nusxalashda xatolik', 'error'));
 }
 
