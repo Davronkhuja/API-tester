@@ -7,6 +7,7 @@ import threading
 import webbrowser
 import uuid
 import queue as queue_module
+import concurrent.futures
 
 import requests as req_lib
 from flask import Flask, request, jsonify, Response, stream_with_context
@@ -84,26 +85,30 @@ def job_worker(job_id):
     result_queue = job["queue"]
     stop_event   = job["stop_event"]
 
-    rows        = config["rows"]
-    method      = config.get("method", "GET").upper()
-    url_tmpl    = config.get("url", "")
-    auth_tmpl   = config.get("authorization", "")
-    params_tmpl = config.get("params", [])
-    hdrs_tmpl   = config.get("headers", [])
-    body_tmpl   = config.get("body", "")
-    ctype       = config.get("content_type", "")
-    body_type   = config.get("body_type", "raw")
-    delay       = float(config.get("delay", 0))
+    rows             = config["rows"]
+    method           = config.get("method", "GET").upper()
+    url_tmpl         = config.get("url", "")
+    auth_tmpl        = config.get("authorization", "")
+    params_tmpl      = config.get("params", [])
+    hdrs_tmpl        = config.get("headers", [])
+    body_tmpl        = config.get("body", "")
+    ctype            = config.get("content_type", "")
+    body_type        = config.get("body_type", "raw")
+    delay            = float(config.get("delay", 0))
+    timeout          = float(config.get("timeout", 120) or 120)
+    ssl_verify       = bool(config.get("ssl_verify", True))
+    concurrency      = max(1, min(10, int(config.get("concurrency", 1) or 1)))
+    retry_count      = max(0, min(5, int(config.get("retry_count", 0) or 0)))
+    env_vars         = config.get("env_vars") or {}
+    multipart_fields = config.get("multipart_fields") or []
 
-    successful = 0
-    failed     = 0
-    times      = []
-    index      = 0
+    rows = [{**env_vars, **row} for row in rows]
 
-    for index, row in enumerate(rows, start=1):
-        if stop_event.is_set():
-            break
+    counts = {"successful": 0, "failed": 0}
+    times  = []
+    lock   = threading.Lock()
 
+    def do_single_request(row, index):
         url  = replace_variables(url_tmpl, row)
         auth = replace_variables(auth_tmpl, row)
 
@@ -111,92 +116,150 @@ def job_worker(job_id):
         if auth:
             hdrs["Authorization"] = auth
         for item in hdrs_tmpl:
-            name = item.get("name", "").strip()
-            val  = item.get("value", "")
-            if name:
-                hdrs[name] = replace_variables(val, row)
+            n = item.get("name", "").strip()
+            v = item.get("value", "")
+            if n:
+                hdrs[n] = replace_variables(v, row)
         if body_tmpl and ctype and "content-type" not in {k.lower() for k in hdrs}:
             hdrs["Content-Type"] = ctype
 
         params = {}
         for item in params_tmpl:
-            name = item.get("name", "").strip()
-            val  = item.get("value", "")
-            if name:
-                params[name] = replace_variables(val, row)
+            n = item.get("name", "").strip()
+            v = item.get("value", "")
+            if n:
+                params[n] = replace_variables(v, row)
 
         body = replace_variables(body_tmpl, row)
 
-        start = time.perf_counter()
-        try:
-            kw = {"params": params, "headers": hdrs, "timeout": 120}
-            if method in ("POST", "PUT", "PATCH") and body:
-                if body_type == "json":
-                    kw["json"] = json.loads(body)
-                else:
-                    kw["data"] = body.encode("utf-8")
-            elif method == "DELETE" and body:
-                kw["data"] = body.encode("utf-8")
+        last_elapsed = 0.0
+        last_err = "Unknown error"
 
-            resp    = req_lib.request(method, url, **kw)
-            elapsed = time.perf_counter() - start
+        for attempt in range(retry_count + 1):
+            if stop_event.is_set():
+                break
+            if attempt > 0:
+                for _ in range(5):
+                    if stop_event.is_set():
+                        break
+                    time.sleep(0.1)
+
+            start = time.perf_counter()
             try:
-                resp_body = resp.json()
-            except Exception:
-                resp_body = resp.text
+                kw = {"params": params, "headers": hdrs,
+                      "timeout": timeout, "verify": ssl_verify}
+                if method in ("POST", "PUT", "PATCH", "DELETE") and (body or body_type == "multipart"):
+                    if body_type == "json" and body:
+                        kw["json"] = json.loads(body)
+                    elif body_type == "multipart":
+                        files = {}
+                        for field in multipart_fields:
+                            fn = replace_variables(field.get("name", ""), row).strip()
+                            fv = replace_variables(field.get("value", ""), row)
+                            if fn:
+                                files[fn] = (None, fv)
+                        if files:
+                            kw["files"] = files
+                    else:
+                        kw["data"] = body.encode("utf-8") if body else b""
 
-            status = resp.status_code
-            ok     = 200 <= status < 300
-            if ok:
-                successful += 1
-            else:
-                failed += 1
+                resp    = req_lib.request(method, url, **kw)
+                elapsed = time.perf_counter() - start
+                last_elapsed = elapsed
 
-            result = {
-                "index": index, "total": len(rows),
-                "status": status, "time": elapsed,
-                "size": len(resp.content), "url": resp.url,
-                "response": resp_body, "error": not ok,
-                "successful": successful, "failed": failed,
+                try:
+                    resp_body = resp.json()
+                except Exception:
+                    resp_body = resp.text
+
+                status = resp.status_code
+                ok     = 200 <= status < 300
+
+                if not ok and attempt < retry_count:
+                    last_err = "HTTP {}".format(status)
+                    continue
+
+                with lock:
+                    if ok:
+                        counts["successful"] += 1
+                    else:
+                        counts["failed"] += 1
+                    s, f = counts["successful"], counts["failed"]
+
+                return {
+                    "index": index, "total": len(rows),
+                    "status": status, "time": elapsed,
+                    "size": len(resp.content), "url": resp.url,
+                    "response": resp_body,
+                    "resp_headers": dict(resp.headers),
+                    "error": not ok,
+                    "successful": s, "failed": f,
+                    "retries": attempt,
+                }
+
+            except req_lib.Timeout:
+                last_elapsed = time.perf_counter() - start
+                last_err = "Request timed out ({:.0f}s)".format(timeout)
+            except Exception as exc:
+                last_elapsed = time.perf_counter() - start
+                last_err = str(exc)
+
+        with lock:
+            counts["failed"] += 1
+            s, f = counts["successful"], counts["failed"]
+
+        return {
+            "index": index, "total": len(rows),
+            "status": "ERROR", "time": last_elapsed,
+            "size": 0, "url": replace_variables(url_tmpl, row),
+            "response": last_err, "resp_headers": {},
+            "error": True, "successful": s, "failed": f,
+            "retries": retry_count,
+        }
+
+    index = 0
+    if concurrency > 1:
+        submitted = [
+            (executor_future, i)
+            for executor_future, i in [
+                (None, i) for i in range(len(rows))
+            ]
+        ]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            future_map = {
+                executor.submit(do_single_request, row, i): i
+                for i, row in enumerate(rows, start=1)
+                if not stop_event.is_set()
             }
-
-        except req_lib.Timeout:
-            elapsed = time.perf_counter() - start
-            failed += 1
-            result = {
-                "index": index, "total": len(rows),
-                "status": "TIMEOUT", "time": elapsed,
-                "size": 0, "url": url,
-                "response": "Request timed out (120s)", "error": True,
-                "successful": successful, "failed": failed,
-            }
-        except Exception as exc:
-            elapsed = time.perf_counter() - start
-            failed += 1
-            result = {
-                "index": index, "total": len(rows),
-                "status": "ERROR", "time": elapsed,
-                "size": 0, "url": url,
-                "response": str(exc), "error": True,
-                "successful": successful, "failed": failed,
-            }
-
-        times.append(result["time"])
-        result_queue.put({"type": "result", "data": result})
-
-        if index < len(rows) and delay > 0 and not stop_event.is_set():
-            steps = int(delay / 0.1)
-            for _ in range(steps):
+            for future in concurrent.futures.as_completed(future_map):
                 if stop_event.is_set():
                     break
-                time.sleep(0.1)
-            leftover = delay - steps * 0.1
-            if leftover > 0 and not stop_event.is_set():
-                time.sleep(leftover)
+                result = future.result()
+                index = max(index, result["index"])
+                times.append(result["time"])
+                result_queue.put({"type": "result", "data": result})
+    else:
+        for index, row in enumerate(rows, start=1):
+            if stop_event.is_set():
+                break
+
+            result = do_single_request(row, index)
+            times.append(result["time"])
+            result_queue.put({"type": "result", "data": result})
+
+            if index < len(rows) and delay > 0 and not stop_event.is_set():
+                steps = int(delay / 0.1)
+                for _ in range(steps):
+                    if stop_event.is_set():
+                        break
+                    time.sleep(0.1)
+                leftover = delay - steps * 0.1
+                if leftover > 0 and not stop_event.is_set():
+                    time.sleep(leftover)
 
     summary = {
         "total": len(rows), "completed": index,
-        "successful": successful, "failed": failed,
+        "successful": counts["successful"], "failed": counts["failed"],
         "min_time": min(times) if times else 0,
         "max_time": max(times) if times else 0,
         "avg_time": sum(times) / len(times) if times else 0,
@@ -1081,6 +1144,192 @@ pre.resp-pre {
   .runner-grid { grid-template-columns: 1fr; }
   .body-grid   { grid-template-columns: 1fr; }
 }
+
+/* ── METHOD SELECT COLORS ──────────────────────────────── */
+.method-sel { font-weight: 700; font-family: var(--mono); }
+.method-sel.m-GET    { color: #22c55e; }
+.method-sel.m-POST   { color: #3b82f6; }
+.method-sel.m-PUT    { color: #f97316; }
+.method-sel.m-DELETE { color: #ef4444; }
+.method-sel.m-PATCH  { color: #a855f7; }
+
+/* ── DARK MODE ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --border-d: #475569; --text: #f1f5f9; --muted: #94a3b8; --light: #64748b;
+}
+[data-theme="dark"] .card,
+[data-theme="dark"] .stat-card { background: var(--surface); }
+[data-theme="dark"] .text-input,
+[data-theme="dark"] .select-input,
+[data-theme="dark"] .method-sel { background: #0f172a; border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .kv-name,
+[data-theme="dark"] .kv-val { background: #0f172a; border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .tabs { border-color: var(--border); }
+[data-theme="dark"] .tab-btn { color: var(--muted); }
+[data-theme="dark"] .tab-btn.active { color: var(--primary); border-color: var(--primary); background: rgba(79,126,247,.08); }
+[data-theme="dark"] .upload-zone { border-color: var(--border-d); background: var(--surface); }
+[data-theme="dark"] .preview-table th { background: #0f172a; }
+[data-theme="dark"] .url-input { background: #0f172a; border-color: var(--border-d); color: var(--text); }
+
+.theme-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.6); cursor: pointer; font-size: 16px;
+  transition: all .15s; flex-shrink: 0;
+}
+.theme-toggle:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+/* ── HEADER ICON BUTTONS ───────────────────────────────── */
+.hdr-icon-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 7px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.65); cursor: pointer; font-size: 11.5px; font-weight: 600;
+  transition: all .15s; white-space: nowrap;
+}
+.hdr-icon-btn:hover { background: rgba(255,255,255,.14); color: #fff; border-color: rgba(255,255,255,.22); }
+
+/* ── URL HISTORY DROPDOWN ──────────────────────────────── */
+.url-wrap { position: relative; flex: 1; display: flex; min-width: 0; }
+.url-wrap .url-input { flex: 1; }
+.url-history-drop {
+  position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 400;
+  background: var(--surface); border: 1px solid var(--border-d);
+  border-radius: var(--rad); box-shadow: var(--sh-md);
+  max-height: 220px; overflow-y: auto; display: none;
+}
+.url-history-drop.open { display: block; }
+.url-hist-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; cursor: pointer; font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.url-hist-item:last-child { border-bottom: none; }
+.url-hist-item:hover, .url-hist-item.focused { background: var(--primary-bg); }
+.url-hist-method { font-family: var(--mono); font-size: 9px; font-weight: 800; min-width: 36px; }
+.url-hist-url { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── ENV DRAWER ────────────────────────────────────────── */
+.env-drawer {
+  position: fixed; right: 0; top: 58px; bottom: 0; z-index: 350;
+  width: 380px; background: var(--surface);
+  border-left: 1px solid var(--border-d);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .22s cubic-bezier(.4,0,.2,1);
+  box-shadow: -4px 0 20px rgba(0,0,0,.15);
+}
+.env-drawer.open { transform: translateX(0); }
+.env-drawer-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.env-drawer-title { font-weight: 700; font-size: 14px; flex: 1; color: var(--text); }
+.env-drawer-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.env-row { display: grid; grid-template-columns: 1fr 1fr 26px; gap: 6px; align-items: center; }
+.env-input {
+  padding: 6px 8px; border: 1px solid var(--border-d); border-radius: 5px;
+  font-size: 12px; font-family: var(--mono); color: var(--text); background: var(--bg);
+  outline: none; width: 100%;
+}
+.env-input:focus { border-color: var(--primary); }
+.env-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; text-align: center; border-radius: 3px; }
+.env-del:hover { color: var(--error); background: var(--error-bg); }
+.env-add-btn {
+  padding: 7px; border-radius: 6px; background: transparent;
+  border: 1px dashed var(--border-d); color: var(--muted); cursor: pointer;
+  font-size: 12px; font-weight: 600; text-align: center; transition: all .15s;
+}
+.env-add-btn:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
+.env-hint { font-size: 11px; color: var(--muted); padding: 4px 0 8px; line-height: 1.5; }
+
+/* ── HISTORY DRAWER ────────────────────────────────────── */
+.hist-drawer {
+  position: fixed; right: 0; top: 58px; bottom: 0; z-index: 350;
+  width: 420px; background: var(--surface);
+  border-left: 1px solid var(--border-d);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .22s cubic-bezier(.4,0,.2,1);
+  box-shadow: -4px 0 20px rgba(0,0,0,.15);
+}
+.hist-drawer.open { transform: translateX(0); }
+.hist-drawer-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.hist-drawer-title { font-weight: 700; font-size: 14px; flex: 1; color: var(--text); }
+.hist-drawer-body { flex: 1; overflow-y: auto; }
+.hist-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+}
+.hist-item:hover { background: var(--bg); }
+.hist-item-info { flex: 1; min-width: 0; }
+.hist-item-url { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); }
+.hist-item-meta { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.hist-item-del { background: none; border: none; cursor: pointer; color: var(--light); font-size: 14px; padding: 2px 5px; border-radius: 3px; flex-shrink: 0; }
+.hist-item-del:hover { color: var(--error); background: var(--error-bg); }
+.hist-empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+
+/* ── DRAWER BACKDROP ───────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 349;
+  background: rgba(0,0,0,.3); display: none;
+}
+
+/* ── STATS EXTENDED ────────────────────────────────────── */
+.stats-grid { grid-template-columns: repeat(4, 1fr) !important; }
+.stats-grid2 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat-card.s-2xx .stat-val { color: #22c55e; }
+.stat-card.s-4xx .stat-val { color: #f97316; }
+.stat-card.s-5xx .stat-val { color: #ef4444; }
+
+/* ── RESPONSE TIME CHART ───────────────────────────────── */
+.time-chart {
+  margin: 4px 0 14px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--rad);
+  padding: 10px 12px;
+}
+.time-chart-title { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.time-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; overflow: hidden; }
+.time-bar {
+  flex: 1; min-width: 3px; max-width: 14px;
+  border-radius: 2px 2px 0 0; cursor: default; transition: height .25s ease;
+}
+.time-bar.ok  { background: #22c55e; }
+.time-bar.err { background: #ef4444; }
+
+/* ── MULTIPART TABLE ───────────────────────────────────── */
+#multipartWrap { margin-top: 8px; }
+
+/* ── SSL / RUNNER GRID ─────────────────────────────────── */
+.runner-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important; }
+.ssl-check-wrap {
+  display: flex; align-items: center; gap: 6px;
+  padding-top: 22px;
+}
+.ssl-check-wrap input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary); }
+.ssl-check-wrap label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+/* ── IMPORT POSTMAN BUTTON ─────────────────────────────── */
+.sb-btn-import {
+  background: rgba(168,85,247,.15); border-color: rgba(168,85,247,.3); color: rgba(168,85,247,.9);
+}
+.sb-btn-import:hover { background: rgba(168,85,247,.3); border-color: rgba(168,85,247,.65); color: #fff; }
+
+/* ── RESPONSE HEADERS ──────────────────────────────────── */
+.resp-hdr-toggle {
+  font-size: 11px; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 0; user-select: none;
+}
+.resp-hdr-toggle:hover { color: var(--text); }
+.resp-hdr-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; display: none; }
+.resp-hdr-table.open { display: table; }
+.resp-hdr-table td { padding: 3px 6px; border-bottom: 1px solid var(--border); font-family: var(--mono); word-break: break-all; }
+.resp-hdr-table td:first-child { color: var(--muted); width: 36%; }
 </style>
 </head>
 <body>
@@ -2083,24 +2332,23 @@ function loadRequest(rid) {
 // SAVE MODAL
 // ════════════════════════════════════════════════════════════
 function openSaveModal() {
-  // populate folder select
+  // Already saved request — just save silently without modal
+  if (saveEditId) {
+    confirmSave();
+    return;
+  }
+
+  // New request — show modal to get name & folder
   const sel = document.getElementById('saveFolderSel');
   sel.innerHTML = '<option value="">— Papkasiz —</option>' +
     db.folders.map(f => `<option value="${ea(f.id)}">${eh(f.name)}</option>`).join('');
 
-  // pre-fill name
   const inp = document.getElementById('saveName');
-  if (saveEditId) {
-    const existing = db.requests.find(r => r.id === saveEditId);
-    inp.value = existing ? existing.name : '';
-    if (existing && existing.folder_id) sel.value = existing.folder_id;
-  } else {
-    const url  = document.getElementById('url').value.trim();
-    const meth = document.getElementById('method').value;
-    const frag = url.split('/').filter(Boolean).slice(-2).join(' / ') || url;
-    inp.value = frag ? meth + ' — ' + frag : '';
-    sel.value = '';
-  }
+  const url  = document.getElementById('url').value.trim();
+  const meth = document.getElementById('method').value;
+  const frag = url.split('/').filter(Boolean).slice(-2).join(' / ') || url;
+  inp.value = frag ? meth + ' — ' + frag : '';
+  sel.value = '';
 
   document.getElementById('saveModal').classList.remove('hidden');
   setTimeout(() => inp.focus(), 60);
@@ -2112,9 +2360,16 @@ function closeSaveModal() {
 }
 
 async function confirmSave() {
-  const name = document.getElementById('saveName').value.trim();
-  if (!name) { document.getElementById('saveName').focus(); return; }
-  const folderId = document.getElementById('saveFolderSel').value || null;
+  let name, folderId;
+  if (saveEditId) {
+    const existing = db.requests.find(r => r.id === saveEditId);
+    name     = existing ? existing.name      : '';
+    folderId = existing ? existing.folder_id : null;
+  } else {
+    name     = document.getElementById('saveName').value.trim();
+    folderId = document.getElementById('saveFolderSel').value || null;
+    if (!name) { document.getElementById('saveName').focus(); return; }
+  }
 
   const payload = {
     name, folder_id: folderId,
