@@ -315,7 +315,28 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: width .22s cubic-bezier(.4,0,.2,1);
 }
+.sidebar.closed { width: 0; border-right: none; }
+.sb-resizer {
+  width: 5px; flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  position: relative;
+  transition: background .15s;
+}
+.sb-resizer:hover, .sb-resizer.dragging { background: var(--primary); }
+.sb-resizer-toggle {
+  position: absolute; top: 50%; right: -12px;
+  transform: translateY(-50%);
+  width: 20px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border-d);
+  border-left: none; border-radius: 0 6px 6px 0;
+  cursor: pointer; font-size: 10px; color: var(--muted);
+  z-index: 10; transition: all .15s;
+}
+.sb-resizer-toggle:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 /* Top action buttons */
 .sb-actions {
@@ -635,7 +656,8 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   cursor: pointer; font-size: 12px; font-weight: 600;
   transition: all .15s;
 }
-.btn-save:hover { background: var(--primary-d); box-shadow: 0 3px 10px rgba(79,126,247,.35); }
+.btn-save:hover:not(:disabled) { background: var(--primary-d); box-shadow: 0 3px 10px rgba(79,126,247,.35); }
+.btn-save:disabled { background: var(--border-d); color: var(--muted); cursor: default; box-shadow: none; }
 
 /* ── URL BAR ──────────────────────────────────────────────── */
 .url-bar { display: flex; gap: 8px; align-items: center; }
@@ -717,9 +739,10 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 .select-input:focus { border-color: var(--primary); }
 .body-wrap { position: relative; }
 .body-textarea {
-  width: 100%; min-height: 150px; padding: 11px;
+  width: 100%; min-height: 150px; max-height: 60vh; padding: 11px;
   border: 1px solid var(--border-d); border-radius: var(--rad);
   font-family: var(--mono); font-size: 12.5px; outline: none; resize: vertical; line-height: 1.6;
+  box-sizing: border-box;
 }
 .body-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,126,247,.1); }
 .btn-beautify {
@@ -1131,6 +1154,10 @@ pre.resp-pre {
 
 </aside>
 
+<div class="sb-resizer" id="sbResizer">
+  <button class="sb-resizer-toggle" id="sbResizerToggle" onclick="toggleSidebar()" title="Sidebar yashirish / ko'rsatish">◀</button>
+</div>
+
 <!-- ─── CONTENT AREA ────────────────────────────────────── -->
 <div class="content-area">
 <div class="main-scroll">
@@ -1140,7 +1167,7 @@ pre.resp-pre {
     <div class="card-header">
       <span class="card-title">So'rov</span>
       <div class="card-acts">
-        <button class="btn-save" onclick="openSaveModal()">
+        <button class="btn-save" id="btnSave" onclick="openSaveModal()" disabled>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2 1h7l2 2v9H2V1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
             <rect x="4" y="8" width="5" height="4" rx=".5" stroke="white" stroke-width="1.2"/>
@@ -1877,6 +1904,8 @@ function newRequest() {
   addKvRow('paramsTable');
   addKvRow('headersTable');
   renderTree();
+  _savedSnapshot = null;
+  btnSave.disabled = true;
   // focus URL
   document.getElementById('url').focus();
 }
@@ -1906,6 +1935,7 @@ function loadRequest(rid) {
   if (!(r.headers || []).length) addKvRow('headersTable');
 
   renderTree();
+  markSaved();
 }
 
 
@@ -1971,6 +2001,7 @@ async function confirmSave() {
     saveEditId  = data.id;
     closeSaveModal();
     await loadDB();
+    markSaved();
     showToast('"' + name + '" saqlandi', 'success');
   } catch(err) {
     showToast('Saqlashda xatolik: ' + err.message, 'error');
@@ -2323,6 +2354,86 @@ function applyCurl(parsed) {
 // INIT
 // ════════════════════════════════════════════════════════════
 loadDB();
+
+// ════════════════════════════════════════════════════════════
+// SIDEBAR TOGGLE + RESIZE
+// ════════════════════════════════════════════════════════════
+const sidebar         = document.querySelector('.sidebar');
+const sbResizer       = document.getElementById('sbResizer');
+const sbResizerToggle = document.getElementById('sbResizerToggle');
+
+function toggleSidebar() {
+  const closed = sidebar.classList.toggle('closed');
+  sbResizerToggle.textContent = closed ? '▶' : '◀';
+  sbResizerToggle.title = closed ? "Sidebar ko'rsatish" : "Sidebar yashirish";
+}
+
+let _sbDragging = false, _sbStartX = 0, _sbStartW = 0;
+sbResizer.addEventListener('mousedown', e => {
+  if (e.target === sbResizerToggle) return;
+  if (sidebar.classList.contains('closed')) return;
+  _sbDragging = true;
+  _sbStartX   = e.clientX;
+  _sbStartW   = sidebar.offsetWidth;
+  sbResizer.classList.add('dragging');
+  document.body.style.cursor     = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!_sbDragging) return;
+  const delta = e.clientX - _sbStartX;
+  const newW  = Math.max(180, Math.min(_sbStartW + delta, 420));
+  sidebar.style.transition = 'none';
+  sidebar.style.width = newW + 'px';
+});
+document.addEventListener('mouseup', () => {
+  if (!_sbDragging) return;
+  _sbDragging = false;
+  sbResizer.classList.remove('dragging');
+  document.body.style.cursor     = '';
+  document.body.style.userSelect = '';
+  sidebar.style.transition = '';
+});
+
+// ════════════════════════════════════════════════════════════
+// SAVE BUTTON DIRTY TRACKING
+// ════════════════════════════════════════════════════════════
+const btnSave = document.getElementById('btnSave');
+let _savedSnapshot = null;
+
+function getFormSnapshot() {
+  return JSON.stringify({
+    method:    document.getElementById('method').value,
+    url:       document.getElementById('url').value,
+    auth:      document.getElementById('authorization').value,
+    body:      document.getElementById('body').value,
+    ct:        document.getElementById('contentType').value,
+    bt:        document.getElementById('bodyType').value,
+    params:    getKv('paramsTable'),
+    headers:   getKv('headersTable'),
+  });
+}
+
+function markSaved() {
+  _savedSnapshot = getFormSnapshot();
+  btnSave.disabled = true;
+}
+
+function checkDirty() {
+  btnSave.disabled = (getFormSnapshot() === _savedSnapshot);
+}
+
+// Watch all relevant inputs
+['method','url','authorization','body','contentType','bodyType'].forEach(id => {
+  document.getElementById(id).addEventListener('input',  checkDirty);
+  document.getElementById(id).addEventListener('change', checkDirty);
+});
+// Watch KV tables (params & headers)
+['paramsTable','headersTable'].forEach(tid => {
+  document.getElementById(tid).addEventListener('input',  checkDirty);
+  document.getElementById(tid).addEventListener('click',  () => setTimeout(checkDirty, 50));
+});
 
 // ════════════════════════════════════════════════════════════
 // RESULTS PANE TOGGLE + RESIZE
