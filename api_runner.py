@@ -646,6 +646,16 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
 }
 .card-acts { margin-left: auto; display: flex; gap: 7px; }
+.btn-curl {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 13px;
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border-d); border-radius: 6px;
+  cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: all .15s;
+}
+.btn-curl:hover { background: var(--surface-d,#f1f3f6); color: var(--text); border-color: var(--muted); }
+.btn-curl.copied { background: #dcfce7; color: #16a34a; border-color: #86efac; }
 .card-body { padding: 18px; }
 
 /* Save button (in card header) */
@@ -1168,6 +1178,14 @@ pre.resp-pre {
     <div class="card-header">
       <span class="card-title">So'rov</span>
       <div class="card-acts">
+        <button class="btn-curl" id="btnCurl" onclick="copyCurl()" title="CURL ko'chirish">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+            <rect x="1" y="4" width="7" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M4 4V2.5A1.5 1.5 0 015.5 1h5A1.5 1.5 0 0112 2.5v8A1.5 1.5 0 0110.5 12H9" stroke="currentColor" stroke-width="1.3"/>
+            <path d="M3.5 9l1.5-1.5L3.5 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          cURL
+        </button>
         <button class="btn-save" id="btnSave" onclick="openSaveModal()" disabled>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2 1h7l2 2v9H2V1z" stroke="white" stroke-width="1.3" stroke-linejoin="round"/>
@@ -2396,6 +2414,72 @@ document.addEventListener('mouseup', () => {
   document.body.style.userSelect = '';
   sidebar.style.transition = '';
 });
+
+// ════════════════════════════════════════════════════════════
+// COPY AS CURL
+// ════════════════════════════════════════════════════════════
+function buildCurl() {
+  const method  = document.getElementById('method').value;
+  const rawUrl  = document.getElementById('url').value.trim();
+  const auth    = document.getElementById('authorization').value.trim();
+  const body    = document.getElementById('body').value.trim();
+  const ct      = document.getElementById('contentType').value.trim();
+  const bt      = document.getElementById('bodyType').value;
+  const params  = getKv('paramsTable').filter(p => p.name);
+  const headers = getKv('headersTable').filter(h => h.name);
+
+  if (!rawUrl) return null;
+
+  // Build URL with query params
+  let url = rawUrl;
+  if (params.length) {
+    const qs = params.map(p => encodeURIComponent(p.name) + '=' + encodeURIComponent(p.value)).join('&');
+    url += (url.includes('?') ? '&' : '?') + qs;
+  }
+
+  const esc = s => s.replace(/'/g, "'\\''");
+
+  let parts = [`curl -X ${method} '${esc(url)}'`];
+
+  // Auth header
+  if (auth) parts.push(`  -H 'Authorization: ${esc(auth)}'`);
+
+  // Content-Type (only if body present)
+  if (body && ct) parts.push(`  -H 'Content-Type: ${esc(ct)}'`);
+
+  // Custom headers
+  headers.forEach(h => parts.push(`  -H '${esc(h.name)}: ${esc(h.value)}'`));
+
+  // Body
+  if (body && ['POST','PUT','PATCH','DELETE'].includes(method)) {
+    if (bt === 'json') {
+      try { parts.push(`  -d '${esc(JSON.stringify(JSON.parse(body)))}'`); }
+      catch { parts.push(`  -d '${esc(body)}'`); }
+    } else {
+      parts.push(`  -d '${esc(body)}'`);
+    }
+  }
+
+  return parts.join(' \\\n');
+}
+
+function copyCurl() {
+  const curl = buildCurl();
+  if (!curl) { showToast('URL kiriting', 'error'); return; }
+  navigator.clipboard.writeText(curl).then(() => {
+    const btn = document.getElementById('btnCurl');
+    btn.classList.add('copied');
+    btn.querySelector('svg').style.display = 'none';
+    const old = btn.innerHTML;
+    btn.innerHTML = '✓ Nusxalandi';
+    setTimeout(() => {
+      btn.innerHTML = old;
+      btn.querySelector('svg').style.display = '';
+      btn.classList.remove('copied');
+    }, 1800);
+    showToast('cURL clipboard ga nusxalandi', 'success');
+  }).catch(() => showToast('Nusxalashda xatolik', 'error'));
+}
 
 // ════════════════════════════════════════════════════════════
 // SAVE BUTTON DIRTY TRACKING
