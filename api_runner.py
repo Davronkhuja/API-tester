@@ -715,12 +715,22 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   padding-right: 26px;
 }
 .select-input:focus { border-color: var(--primary); }
+.body-wrap { position: relative; }
 .body-textarea {
   width: 100%; min-height: 150px; padding: 11px;
   border: 1px solid var(--border-d); border-radius: var(--rad);
   font-family: var(--mono); font-size: 12.5px; outline: none; resize: vertical; line-height: 1.6;
 }
 .body-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,126,247,.1); }
+.btn-beautify {
+  position: absolute; top: 7px; right: 9px;
+  padding: 3px 9px; font-size: 11px; font-weight: 600; letter-spacing: .3px;
+  border: 1px solid var(--border-d); border-radius: 5px;
+  background: var(--surface); color: var(--muted); cursor: pointer;
+  transition: all .15s; display: none;
+}
+.btn-beautify:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-beautify.visible { display: block; }
 
 /* ── FILE UPLOAD ──────────────────────────────────────────── */
 .upload-zone {
@@ -1215,10 +1225,13 @@ pre.resp-pre {
             <input id="contentType" class="text-input" value="application/json">
           </div>
         </div>
-        <textarea id="body" class="body-textarea" placeholder='{
+        <div class="body-wrap">
+          <textarea id="body" class="body-textarea" placeholder='{
   "id": "{{id}}",
   "name": "{{name}}"
 }'></textarea>
+          <button class="btn-beautify" id="btnBeautify" onclick="beautifyBody()" title="JSON ni chiroyli formatlash">✦ Beautify</button>
+        </div>
       </div>
 
     </div>
@@ -1358,6 +1371,39 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('tab-' + tab).classList.add('active');
   });
 });
+
+// ── BODY TEXTAREA: Tab key inserts spaces, not focus-jump ──
+const bodyTA = document.getElementById('body');
+bodyTA.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = bodyTA.selectionStart, end = bodyTA.selectionEnd;
+    bodyTA.value = bodyTA.value.slice(0, s) + '  ' + bodyTA.value.slice(end);
+    bodyTA.selectionStart = bodyTA.selectionEnd = s + 2;
+  }
+});
+
+// ── BEAUTIFY button: show only when bodyType === json ──
+const btnBeautify = document.getElementById('btnBeautify');
+function updateBeautifyVisibility() {
+  const t = document.getElementById('bodyType').value;
+  btnBeautify.classList.toggle('visible', t === 'json');
+}
+document.getElementById('bodyType').addEventListener('change', updateBeautifyVisibility);
+updateBeautifyVisibility();
+
+function beautifyBody() {
+  try {
+    const raw = bodyTA.value.trim();
+    if (!raw) return;
+    bodyTA.value = JSON.stringify(JSON.parse(raw), null, 2);
+    bodyTA.style.transition = 'box-shadow .2s';
+    bodyTA.style.boxShadow = '0 0 0 3px rgba(79,126,247,.2)';
+    setTimeout(() => { bodyTA.style.boxShadow = ''; }, 600);
+  } catch {
+    showToast('JSON formati noto\'g\'ri', 'error');
+  }
+}
 
 
 // ════════════════════════════════════════════════════════════
