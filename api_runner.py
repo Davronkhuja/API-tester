@@ -963,17 +963,17 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 .copy-btn:hover { border-color: var(--primary); color: var(--primary); }
 .copy-btn.copied { color: var(--success); border-color: var(--success); }
 pre.resp-pre {
-  background: #0D1117; color: #C9D1D9;
-  padding: 13px 15px; border-radius: var(--rad);
+  background: #1a2236; color: #e2e8f0;
+  padding: 14px 16px; border-radius: var(--rad);
   overflow: auto; max-height: 380px;
-  font-family: var(--mono); font-size: 12px; line-height: 1.6;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
   white-space: pre-wrap; word-break: break-word;
 }
-.j-key  { color: #79C0FF; }
-.j-str  { color: #A5D6FF; }
-.j-num  { color: #F0883E; }
-.j-bool { color: #FF7B72; }
-.j-null { color: #FF7B72; }
+.j-key  { color: #5ce0d8; }
+.j-str  { color: #4ade80; }
+.j-num  { color: #60a5fa; }
+.j-bool { color: #f472b6; }
+.j-null { color: #f472b6; opacity: .7; }
 
 /* ── EMPTY ────────────────────────────────────────────────── */
 .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); }
@@ -1840,12 +1840,13 @@ function fmtBytes(n) {
 function syntaxHL(str) {
   const s = str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return s.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-    m => {
-      if (/^"/.test(m)) return /:$/.test(m) ? `<span class="j-key">${m}</span>` : `<span class="j-str">${m}</span>`;
-      if (/true|false/.test(m)) return `<span class="j-bool">${m}</span>`;
-      if (/null/.test(m))       return `<span class="j-null">${m}</span>`;
-      return `<span class="j-num">${m}</span>`;
+    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)/g,
+    (m, str_, colon, kw, num) => {
+      if (kw === 'true' || kw === 'false') return `<span class="j-bool">${kw}</span>`;
+      if (kw === 'null')  return `<span class="j-null">${kw}</span>`;
+      if (num !== undefined) return `<span class="j-num">${num}</span>`;
+      if (colon) return `<span class="j-key">${str_}</span>:`;
+      return `<span class="j-str">${str_}</span>`;
     });
 }
 
