@@ -219,12 +219,6 @@ def job_worker(job_id):
 
     index = 0
     if concurrency > 1:
-        submitted = [
-            (executor_future, i)
-            for executor_future, i in [
-                (None, i) for i in range(len(rows))
-            ]
-        ]
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
             future_map = {
                 executor.submit(do_single_request, row, i): i
@@ -1359,7 +1353,7 @@ pre.resp-pre {
       <span class="app-sub">CSV · JSON fayldan API ga batch so'rov</span>
     </div>
   </div>
-  <span class="app-ver">v2</span>
+  <span class="app-ver">v3</span>
   <div class="hdr-space"></div>
   <div class="hdr-chips">
     <span class="hdr-chip">
@@ -1376,6 +1370,21 @@ pre.resp-pre {
       Real-time natija
     </span>
   </div>
+  <button class="hdr-icon-btn" onclick="openEnvDrawer()" title="Muhit o'zgaruvchilari">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+      <path d="M6.5 3.5v1M6.5 8.5v1M3.5 6.5h1M8.5 6.5h1M4.6 4.6l.7.7M7.7 7.7l.7.7M4.6 8.4l.7-.7M7.7 5.3l.7-.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    ENV
+  </button>
+  <button class="hdr-icon-btn" onclick="openHistDrawer()" title="So'rovlar tarixi">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+      <path d="M6.5 3.5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Tarix
+  </button>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Qorong'i / Yorqin rejim">🌙</button>
 </header>
 
 <!-- ═══════════════════════════════════════════════════════ -->
@@ -1459,7 +1468,7 @@ pre.resp-pre {
 <aside class="sidebar">
 
   <!-- Top buttons -->
-  <div class="sb-actions">
+  <div class="sb-actions" style="flex-wrap:wrap;">
     <button class="sb-btn sb-btn-req" onclick="newRequest()">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -1473,6 +1482,14 @@ pre.resp-pre {
       </svg>
       Papka
     </button>
+    <button class="sb-btn sb-btn-import" onclick="triggerPostmanImport()" title="Postman Collection v2.1 import qilish" style="flex:1;">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M6 1v7M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M1 9.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      Import
+    </button>
+    <input type="file" id="postmanFile" accept=".json" style="display:none" onchange="importPostman(this.files[0])">
   </div>
 
   <!-- Search -->
@@ -1529,14 +1546,18 @@ pre.resp-pre {
 
       <!-- URL BAR -->
       <div class="url-bar">
-        <select id="method" class="method-sel">
+        <select id="method" class="method-sel" onchange="updateMethodColor()">
           <option>GET</option>
           <option selected>POST</option>
           <option>PUT</option>
           <option>PATCH</option>
           <option>DELETE</option>
         </select>
-        <input id="url" class="url-input" placeholder="https://api.example.com/endpoint/{{id}}  yoki  curl '...' ni bu yerga joylashtiring">
+        <div class="url-wrap">
+          <input id="url" class="url-input" placeholder="https://api.example.com/endpoint/{{id}}  yoki  curl '...' ni bu yerga joylashtiring"
+            onfocus="showUrlHistory()" onblur="hideUrlHistoryDelayed()" oninput="filterUrlHistory(this.value)">
+          <div class="url-history-drop" id="urlHistDrop"></div>
+        </div>
         <span class="curl-badge" id="curlBadge">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
             <path d="M1 5.5L4 8.5L10 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1593,6 +1614,7 @@ pre.resp-pre {
               <option value="json">JSON</option>
               <option value="raw">Raw text</option>
               <option value="form">Form encoded</option>
+              <option value="multipart">Multipart form</option>
             </select>
           </div>
           <div>
@@ -1600,7 +1622,7 @@ pre.resp-pre {
             <input id="contentType" class="text-input" value="application/json">
           </div>
         </div>
-        <div class="body-wrap">
+        <div class="body-wrap" id="bodyWrap">
           <div class="body-editor-wrap" id="bodyEditorWrap">
             <pre class="body-pre" id="bodyPre"></pre>
             <textarea id="body" class="body-textarea" placeholder='{
@@ -1609,6 +1631,15 @@ pre.resp-pre {
 }'></textarea>
           </div>
           <button class="btn-beautify" id="btnBeautify" onclick="beautifyBody()" title="JSON ni chiroyli formatlash">✦ Beautify</button>
+        </div>
+        <div id="multipartWrap" class="hidden">
+          <table class="kv-table" id="multipartTable">
+            <thead><tr>
+              <th style="width:40%">Field nomi</th><th>Qiymat / {{column}}</th><th style="width:34px"></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+          <button class="btn-add-row" onclick="addKvRow('multipartTable')">+ Field qo'shish</button>
         </div>
       </div>
 
@@ -1657,8 +1688,24 @@ pre.resp-pre {
           <input id="count" class="text-input" type="number" value="10" min="1">
         </div>
         <div>
-          <div class="field-label">Delay (soniya)</div>
+          <div class="field-label">Delay (s)</div>
           <input id="delay" class="text-input" type="number" value="0" min="0" step="0.1" placeholder="0">
+        </div>
+        <div>
+          <div class="field-label">Timeout (s)</div>
+          <input id="runnerTimeout" class="text-input" type="number" value="120" min="1" max="600" placeholder="120">
+        </div>
+        <div>
+          <div class="field-label">Parallel</div>
+          <input id="concurrency" class="text-input" type="number" value="1" min="1" max="10" placeholder="1">
+        </div>
+        <div>
+          <div class="field-label">Retry</div>
+          <input id="retryCount" class="text-input" type="number" value="0" min="0" max="5" placeholder="0">
+        </div>
+        <div class="ssl-check-wrap">
+          <input type="checkbox" id="sslVerify" checked>
+          <label for="sslVerify">SSL tekshir</label>
         </div>
       </div>
 
@@ -1694,9 +1741,19 @@ pre.resp-pre {
 
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl">Jami</div></div>
-      <div class="stat-card s-ok"><div class="stat-val" id="sOk">0</div><div class="stat-lbl">Muvaffaqiyatli</div></div>
-      <div class="stat-card s-err"><div class="stat-val" id="sErr">0</div><div class="stat-lbl">Xatolik</div></div>
-      <div class="stat-card s-time"><div class="stat-val" id="sAvg">—</div><div class="stat-lbl">O'rtacha vaqt</div></div>
+      <div class="stat-card s-ok"><div class="stat-val" id="sOk">0</div><div class="stat-lbl">✓ Muvaffaq</div></div>
+      <div class="stat-card s-err"><div class="stat-val" id="sErr">0</div><div class="stat-lbl">✕ Xatolik</div></div>
+      <div class="stat-card s-time"><div class="stat-val" id="sAvg">—</div><div class="stat-lbl">O'rtacha</div></div>
+    </div>
+    <div class="stats-grid2">
+      <div class="stat-card s-2xx"><div class="stat-val" id="s2xx">0</div><div class="stat-lbl">2xx</div></div>
+      <div class="stat-card s-4xx"><div class="stat-val" id="s4xx">0</div><div class="stat-lbl">4xx</div></div>
+      <div class="stat-card s-5xx"><div class="stat-val" id="s5xx">0</div><div class="stat-lbl">5xx</div></div>
+    </div>
+
+    <div class="time-chart" id="timeChart" style="display:none;">
+      <div class="time-chart-title">Javob vaqti (so'nggi natijalar)</div>
+      <div class="time-bars" id="timeBars"></div>
     </div>
 
     <div class="filter-bar">
@@ -1736,6 +1793,43 @@ pre.resp-pre {
 </div>
 <div class="curl-backdrop" id="curlBackdrop" onclick="closeCurlDrawer()" style="display:none;position:fixed;inset:0;z-index:299;"></div>
 
+<!-- ── ENV DRAWER ───────────────────────────────────────────── -->
+<div class="env-drawer" id="envDrawer">
+  <div class="env-drawer-header">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M8 4v1M8 11v1M4 8h1M11 8h1M5.6 5.6l.7.7M9.7 9.7l.7.7M5.6 10.4l.7-.7M9.7 6.3l.7-.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    <span class="env-drawer-title">Muhit o'zgaruvchilari (ENV)</span>
+    <button class="rp-close" onclick="closeEnvDrawer()" title="Yopish">×</button>
+  </div>
+  <div class="env-drawer-body" id="envList">
+    <div class="env-hint">O'zgaruvchilar URL, header, body va auth ichida <b>{{nom}}</b> ko'rinishida ishlatiladi. Fayl qatorlari ustunlik qiladi.</div>
+  </div>
+  <div style="padding:0 16px 16px;">
+    <button class="env-add-btn" onclick="addEnvRow()">+ O'zgaruvchi qo'shish</button>
+  </div>
+</div>
+
+<!-- ── HISTORY DRAWER ──────────────────────────────────────── -->
+<div class="hist-drawer" id="histDrawer">
+  <div class="hist-drawer-header">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M8 4.5v3.5l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="hist-drawer-title">So'rovlar tarixi</span>
+    <button class="btn btn-ghost btn-sm" onclick="clearHistory()" style="font-size:11px;">Tozalash</button>
+    <button class="rp-close" onclick="closeHistDrawer()" title="Yopish">×</button>
+  </div>
+  <div class="hist-drawer-body" id="histList">
+    <div class="hist-empty">Hali tarix yo'q</div>
+  </div>
+</div>
+
+<!-- ── DRAWER BACKDROP ──────────────────────────────────────── -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeAllDrawers()"></div>
+
 <script>
 // ════════════════════════════════════════════════════════════
 // STATE
@@ -1746,13 +1840,21 @@ let currentFilter = 'all';
 let currentJobId  = null;
 let currentSrc    = null;
 
+// stats
+let _cnt2xx = 0, _cnt4xx = 0, _cnt5xx = 0;
+let _timeSeries = [];
+
 // sidebar state
 let db          = { folders: [], requests: [] };
-let activeReqId = null;   // currently loaded request id
-let saveEditId  = null;   // for updating existing saved request
-let folderEditId = null;  // for renaming folder
-let moveReqId   = null;   // request being moved
+let activeReqId = null;
+let saveEditId  = null;
+let folderEditId = null;
+let moveReqId   = null;
 let searchQuery = '';
+
+// url history focus index
+let _urlHistIdx = -1;
+let _urlHistFiltered = [];
 
 
 // ════════════════════════════════════════════════════════════
@@ -1800,8 +1902,11 @@ bodyTA.addEventListener('input', () => { updateBodyHL(); checkDirty(); });
 const btnBeautify = document.getElementById('btnBeautify');
 function updateBeautifyVisibility() {
   const t = document.getElementById('bodyType').value;
+  const isMultipart = t === 'multipart';
   btnBeautify.classList.toggle('visible', t === 'json');
-  updateBodyHL();
+  document.getElementById('bodyWrap').style.display = isMultipart ? 'none' : '';
+  document.getElementById('multipartWrap').classList.toggle('hidden', !isMultipart);
+  if (!isMultipart) updateBodyHL();
 }
 document.getElementById('bodyType').addEventListener('change', updateBeautifyVisibility);
 updateBeautifyVisibility();
@@ -1958,21 +2063,34 @@ async function startRun() {
     rows = dataRows.slice(0, n);
   }
 
+  const bt = document.getElementById('bodyType').value;
   const config = {
     method: document.getElementById('method').value,
     url,
     authorization: document.getElementById('authorization').value.trim(),
     params:   getKv('paramsTable'),
     headers:  getKv('headersTable'),
-    body:     document.getElementById('body').value,
+    body:     bt === 'multipart' ? '' : document.getElementById('body').value,
     content_type: document.getElementById('contentType').value.trim(),
-    body_type: document.getElementById('bodyType').value,
+    body_type: bt,
     delay: parseFloat(document.getElementById('delay').value) || 0,
+    timeout: parseFloat(document.getElementById('runnerTimeout').value) || 120,
+    concurrency: parseInt(document.getElementById('concurrency').value) || 1,
+    retry_count: parseInt(document.getElementById('retryCount').value) || 0,
+    ssl_verify: document.getElementById('sslVerify').checked,
+    env_vars: getEnvVars(),
+    multipart_fields: bt === 'multipart' ? getKv('multipartTable') : [],
     rows,
   };
+  // save to history
+  addToHistory({ method: config.method, url, timestamp: Date.now() });
 
   allResults = [];
+  _cnt2xx = 0; _cnt4xx = 0; _cnt5xx = 0;
+  _timeSeries = [];
   document.getElementById('resultsList').innerHTML = '';
+  document.getElementById('timeBars').innerHTML = '';
+  document.getElementById('timeChart').style.display = 'none';
   openResults();
   setStatus('running', `${rows.length} ta so'rov yuborilmoqda...`);
   updateProgress(0, rows.length);
@@ -2009,7 +2127,18 @@ async function startRun() {
     allResults.push(item);
     renderResult(item);
     updateProgress(item.index, item.total);
+    // track status code groups
+    const st = item.status;
+    if (typeof st === 'number') {
+      if (st >= 200 && st < 300)      _cnt2xx++;
+      else if (st >= 400 && st < 500) _cnt4xx++;
+      else if (st >= 500)             _cnt5xx++;
+    }
+    document.getElementById('s2xx').textContent = _cnt2xx;
+    document.getElementById('s4xx').textContent = _cnt4xx;
+    document.getElementById('s5xx').textContent = _cnt5xx;
     updateStats(item.total, item.successful, item.failed, null);
+    updateTimeChart(item);
     setStatus('running', `${item.index} / ${item.total}`);
   });
 
@@ -2080,6 +2209,17 @@ function renderResult(item) {
   const respStr = typeof item.response === 'object'
     ? JSON.stringify(item.response, null, 2) : String(item.response ?? '');
 
+  const retryBadge = item.retries > 0
+    ? `<span style="font-size:9.5px;color:#f97316;background:rgba(249,115,22,.12);padding:1px 5px;border-radius:4px;">↺${item.retries}</span>` : '';
+
+  const hdrs = item.resp_headers || {};
+  const hdrKeys = Object.keys(hdrs);
+  const hdrRows = hdrKeys.slice(0, 30).map(k =>
+    `<tr><td>${eh(k)}</td><td>${eh(String(hdrs[k]))}</td></tr>`).join('');
+  const hdrSection = hdrKeys.length ? `
+    <div class="resp-hdr-toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=(this.nextElementSibling.classList.contains('open')?'▾ ':'▸ ')+'Headers ('+${hdrKeys.length}+')'">▸ Headers (${hdrKeys.length})</div>
+    <table class="resp-hdr-table"><tbody>${hdrRows}</tbody></table>` : '';
+
   const card = document.createElement('div');
   card.className = 'result-card ' + (ok ? 'is-ok' : 'is-err');
   card.dataset.ok = ok ? '1' : '0';
@@ -2087,6 +2227,7 @@ function renderResult(item) {
     <div class="result-head" onclick="this.parentElement.classList.toggle('expanded')">
       <span class="result-num">#${item.index}</span>
       <span class="status-badge ${badgeClass(item.status)}">${eh(String(item.status))}</span>
+      ${retryBadge}
       <span class="result-url" title="${ea(item.url)}">${eh(item.url)}</span>
       <span class="result-time">${item.time.toFixed(3)}s</span>
       <span class="result-sz">${fmtBytes(item.size)}</span>
@@ -2100,6 +2241,7 @@ function renderResult(item) {
         <button class="copy-btn" onclick="copyResp(this)">Copy</button>
         <pre class="resp-pre">${syntaxHL(respStr)}</pre>
       </div>
+      ${hdrSection}
     </div>`;
   list.appendChild(card);
 }
@@ -2734,12 +2876,14 @@ function applyCurl(parsed) {
     } catch(_) {
       document.getElementById('bodyType').value = 'raw';
     }
+    updateBeautifyVisibility();
     // switch to Body tab
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelector('[data-tab="body"]').classList.add('active');
     document.getElementById('tab-body').classList.add('active');
   }
+  updateMethodColor();
 
   return true;
 }
@@ -2749,6 +2893,398 @@ function applyCurl(parsed) {
 // INIT
 // ════════════════════════════════════════════════════════════
 loadDB();
+initTheme();
+updateMethodColor();
+renderHistory();
+addKvRow('multipartTable');
+
+// ════════════════════════════════════════════════════════════
+// METHOD BADGE COLOR
+// ════════════════════════════════════════════════════════════
+function updateMethodColor() {
+  const sel = document.getElementById('method');
+  sel.className = 'method-sel m-' + sel.value;
+}
+
+// ════════════════════════════════════════════════════════════
+// DARK / LIGHT MODE
+// ════════════════════════════════════════════════════════════
+function initTheme() {
+  const saved = localStorage.getItem('apiRunnerTheme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.getElementById('themeToggle').textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('apiRunnerTheme', next);
+  document.getElementById('themeToggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+// ════════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (!mod) return;
+  // Don't intercept when typing in an input/textarea (except Cmd+B)
+  const tag = document.activeElement.tagName.toLowerCase();
+  const inField = tag === 'input' || tag === 'select';
+  const inTextarea = tag === 'textarea';
+
+  if (e.key === 'Enter' && !inTextarea) {
+    e.preventDefault();
+    if (!document.getElementById('runBtn').disabled) startRun();
+  } else if (e.key === 's' && !inTextarea) {
+    e.preventDefault();
+    if (!document.getElementById('btnSave').disabled) openSaveModal();
+  } else if (e.key === 'b') {
+    if (inTextarea || (!inField && !inTextarea)) {
+      e.preventDefault();
+      beautifyBody();
+    }
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// URL HISTORY
+// ════════════════════════════════════════════════════════════
+const URL_HIST_KEY = 'apiRunnerUrlHistory';
+const URL_HIST_MAX = 20;
+
+function getUrlHistory() {
+  try { return JSON.parse(localStorage.getItem(URL_HIST_KEY) || '[]'); } catch { return []; }
+}
+function saveUrlHistoryList(arr) {
+  localStorage.setItem(URL_HIST_KEY, JSON.stringify(arr.slice(0, URL_HIST_MAX)));
+}
+function addUrlHistory(method, url) {
+  if (!url) return;
+  let arr = getUrlHistory();
+  arr = arr.filter(x => !(x.url === url && x.method === method));
+  arr.unshift({ method, url });
+  saveUrlHistoryList(arr);
+}
+function showUrlHistory() {
+  const val = document.getElementById('url').value.trim();
+  renderUrlHistDrop(val);
+  document.getElementById('urlHistDrop').classList.add('open');
+}
+function hideUrlHistoryDelayed() {
+  setTimeout(() => {
+    document.getElementById('urlHistDrop').classList.remove('open');
+    _urlHistIdx = -1;
+  }, 200);
+}
+function filterUrlHistory(val) {
+  renderUrlHistDrop(val);
+}
+function renderUrlHistDrop(filter) {
+  const all = getUrlHistory();
+  const q = filter.toLowerCase();
+  _urlHistFiltered = q
+    ? all.filter(x => x.url.toLowerCase().includes(q) || x.method.toLowerCase().includes(q))
+    : all;
+  const drop = document.getElementById('urlHistDrop');
+  if (!_urlHistFiltered.length) { drop.classList.remove('open'); return; }
+  drop.innerHTML = _urlHistFiltered.slice(0, 12).map((x, i) =>
+    `<div class="url-hist-item" data-i="${i}" onmousedown="pickUrlHistory(${i})">
+      <span class="url-hist-method mpill mpill-${ea(x.method)}">${eh(x.method)}</span>
+      <span class="url-hist-url">${eh(x.url)}</span>
+    </div>`).join('');
+  drop.classList.add('open');
+  _urlHistIdx = -1;
+}
+function pickUrlHistory(i) {
+  const item = _urlHistFiltered[i];
+  if (!item) return;
+  document.getElementById('url').value = item.url;
+  document.getElementById('method').value = item.method;
+  updateMethodColor();
+  checkDirty();
+  document.getElementById('urlHistDrop').classList.remove('open');
+}
+// Arrow key navigation in URL history
+document.getElementById('url').addEventListener('keydown', e => {
+  const drop = document.getElementById('urlHistDrop');
+  if (!drop.classList.contains('open')) return;
+  const items = drop.querySelectorAll('.url-hist-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _urlHistIdx = Math.min(_urlHistIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('focused', i === _urlHistIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _urlHistIdx = Math.max(_urlHistIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('focused', i === _urlHistIdx));
+  } else if (e.key === 'Enter' && _urlHistIdx >= 0) {
+    e.preventDefault();
+    e.stopPropagation();
+    pickUrlHistory(_urlHistIdx);
+  } else if (e.key === 'Escape') {
+    drop.classList.remove('open');
+    _urlHistIdx = -1;
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// ENV VARIABLES
+// ════════════════════════════════════════════════════════════
+const ENV_KEY = 'apiRunnerEnvVars';
+
+function getEnvVars() {
+  const rows = document.querySelectorAll('#envList .env-row');
+  const vars = {};
+  rows.forEach(row => {
+    const k = row.querySelector('.env-key').value.trim();
+    const v = row.querySelector('.env-val').value;
+    if (k) vars[k] = v;
+  });
+  return vars;
+}
+function saveEnvToStorage() {
+  localStorage.setItem(ENV_KEY, JSON.stringify(getEnvVars()));
+}
+function loadEnvFromStorage() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(ENV_KEY) || '{}');
+    Object.entries(saved).forEach(([k, v]) => addEnvRow(k, v));
+  } catch {}
+}
+function addEnvRow(key='', val='') {
+  const wrap = document.getElementById('envList');
+  const hint = wrap.querySelector('.env-hint');
+  const row = document.createElement('div');
+  row.className = 'env-row';
+  row.innerHTML = `
+    <input class="env-input env-key" placeholder="KEY" value="${ea(key)}">
+    <input class="env-input env-val" placeholder="value" value="${ea(val)}">
+    <button class="env-del" onclick="this.closest('.env-row').remove();saveEnvToStorage()">×</button>`;
+  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', saveEnvToStorage));
+  if (hint && hint.nextSibling) {
+    wrap.insertBefore(row, hint.nextSibling);
+  } else {
+    wrap.appendChild(row);
+  }
+}
+function openEnvDrawer() {
+  closeAllDrawers();
+  document.getElementById('envDrawer').classList.add('open');
+  document.getElementById('drawerBackdrop').style.display = 'block';
+}
+function closeEnvDrawer() {
+  document.getElementById('envDrawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').style.display = 'none';
+}
+loadEnvFromStorage();
+
+// ════════════════════════════════════════════════════════════
+// REQUEST HISTORY
+// ════════════════════════════════════════════════════════════
+const HIST_KEY = 'apiRunnerHistory';
+const HIST_MAX = 30;
+
+function getRunHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; }
+}
+function addToHistory(entry) {
+  addUrlHistory(entry.method, entry.url);
+  let arr = getRunHistory();
+  arr.unshift({ ...entry, id: Date.now() });
+  if (arr.length > HIST_MAX) arr = arr.slice(0, HIST_MAX);
+  localStorage.setItem(HIST_KEY, JSON.stringify(arr));
+  renderHistory();
+}
+function clearHistory() {
+  if (!confirm("Barcha tarixi o'chirilsinmi?")) return;
+  localStorage.removeItem(HIST_KEY);
+  renderHistory();
+}
+function renderHistory() {
+  const list = document.getElementById('histList');
+  const arr = getRunHistory();
+  if (!arr.length) {
+    list.innerHTML = '<div class="hist-empty">Hali tarix yo\'q</div>';
+    return;
+  }
+  list.innerHTML = arr.map(x => {
+    const t = new Date(x.timestamp);
+    const tstr = t.toLocaleDateString() + ' ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    const shortUrl = x.url.replace(/^https?:\/\//, '').slice(0, 60);
+    return `<div class="hist-item" onclick="loadFromHistory('${ea(JSON.stringify(x))}')">
+      <span class="mpill mpill-${ea(x.method)}">${eh(x.method)}</span>
+      <div class="hist-item-info">
+        <div class="hist-item-url">${eh(shortUrl)}</div>
+        <div class="hist-item-meta">${eh(tstr)}</div>
+      </div>
+      <button class="hist-item-del" onclick="event.stopPropagation();deleteHistItem(${x.id})" title="O'chirish">×</button>
+    </div>`;
+  }).join('');
+}
+function loadFromHistory(jsonStr) {
+  try {
+    const x = JSON.parse(jsonStr);
+    document.getElementById('method').value = x.method || 'GET';
+    document.getElementById('url').value = x.url || '';
+    updateMethodColor(); checkDirty();
+    closeHistDrawer();
+    showToast('Tarixdan yuklandi', 'info');
+  } catch {}
+}
+function deleteHistItem(id) {
+  let arr = getRunHistory().filter(x => x.id !== id);
+  localStorage.setItem(HIST_KEY, JSON.stringify(arr));
+  renderHistory();
+}
+function openHistDrawer() {
+  closeAllDrawers();
+  renderHistory();
+  document.getElementById('histDrawer').classList.add('open');
+  document.getElementById('drawerBackdrop').style.display = 'block';
+}
+function closeHistDrawer() {
+  document.getElementById('histDrawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').style.display = 'none';
+}
+function closeAllDrawers() {
+  document.getElementById('envDrawer').classList.remove('open');
+  document.getElementById('histDrawer').classList.remove('open');
+  document.getElementById('drawerBackdrop').style.display = 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+// RESPONSE TIME CHART
+// ════════════════════════════════════════════════════════════
+function updateTimeChart(item) {
+  _timeSeries.push({ t: item.time, ok: !item.error });
+  const chart = document.getElementById('timeChart');
+  const bars  = document.getElementById('timeBars');
+  chart.style.display = 'block';
+
+  const max = Math.max(..._timeSeries.map(x => x.t), 0.001);
+  bars.innerHTML = _timeSeries.slice(-60).map(x => {
+    const h = Math.max(4, Math.round((x.t / max) * 52));
+    return `<div class="time-bar ${x.ok ? 'ok' : 'err'}" style="height:${h}px" title="${x.t.toFixed(3)}s"></div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// POSTMAN IMPORT
+// ════════════════════════════════════════════════════════════
+function triggerPostmanImport() {
+  document.getElementById('postmanFile').click();
+}
+function importPostman(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const col = JSON.parse(ev.target.result);
+      const items = flattenPostman(col.item || []);
+      if (!items.length) { showToast("So'rovlar topilmadi", 'warn'); return; }
+
+      let imported = 0;
+      const promises = items.map(async req => {
+        const payload = postmanReqToPayload(req, col.variable || []);
+        if (!payload.url) return;
+        const res = await fetch('/saved/request', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) imported++;
+      });
+      Promise.all(promises).then(async () => {
+        await loadDB();
+        showToast(`${imported} ta so'rov import qilindi`, 'success');
+      });
+    } catch(err) {
+      showToast('Import xatosi: ' + err.message, 'error');
+    }
+    document.getElementById('postmanFile').value = '';
+  };
+  reader.readAsText(file);
+}
+function flattenPostman(items, out=[]) {
+  items.forEach(x => {
+    if (x.item) flattenPostman(x.item, out);
+    else if (x.request) out.push(x);
+  });
+  return out;
+}
+function postmanReqToPayload(item, colVars=[]) {
+  const req   = item.request;
+  const meth  = (req.method || 'GET').toUpperCase();
+  const name  = item.name || meth;
+
+  let rawUrl = '';
+  if (typeof req.url === 'string') {
+    rawUrl = req.url;
+  } else if (req.url) {
+    rawUrl = (req.url.raw || req.url.host?.join('.') + (req.url.path ? '/' + req.url.path.join('/') : '')) || '';
+    // replace {{var}} from collection variables
+    colVars.forEach(v => {
+      rawUrl = rawUrl.replace(new RegExp(`\\{\\{${v.key}\\}\\}`, 'g'), v.value || '');
+    });
+  }
+
+  // Extract headers
+  const hdrs = (req.header || [])
+    .filter(h => !h.disabled)
+    .map(h => ({ name: h.key, value: h.value }));
+
+  let auth = '';
+  if (req.auth) {
+    if (req.auth.type === 'bearer') {
+      const tok = (req.auth.bearer || []).find(x => x.key === 'token');
+      if (tok) auth = 'Bearer ' + (tok.value || '');
+    } else if (req.auth.type === 'basic') {
+      const u = (req.auth.basic || []).find(x => x.key === 'username')?.value || '';
+      const p = (req.auth.basic || []).find(x => x.key === 'password')?.value || '';
+      auth = 'Basic ' + btoa(u + ':' + p);
+    }
+  }
+
+  let body = '', bodyType = 'raw', ct = '';
+  if (req.body) {
+    if (req.body.mode === 'raw') {
+      body = req.body.raw || '';
+      const lang = (req.body.options?.raw?.language || '').toLowerCase();
+      if (lang === 'json' || body.trim().startsWith('{') || body.trim().startsWith('[')) {
+        bodyType = 'json'; ct = 'application/json';
+      } else {
+        bodyType = 'raw';
+      }
+    } else if (req.body.mode === 'urlencoded') {
+      bodyType = 'form';
+      ct = 'application/x-www-form-urlencoded';
+      body = (req.body.urlencoded || []).map(x => `${x.key}=${x.value}`).join('&');
+    }
+  }
+
+  // Query params
+  let params = [];
+  if (req.url && req.url.query) {
+    params = req.url.query.filter(q => !q.disabled).map(q => ({ name: q.key, value: q.value || '' }));
+  } else if (rawUrl.includes('?')) {
+    const qs = rawUrl.split('?')[1];
+    rawUrl = rawUrl.split('?')[0];
+    new URLSearchParams(qs).forEach((v, k) => params.push({ name: k, value: v }));
+  }
+
+  return {
+    name, method: meth,
+    url: rawUrl.replace(/{{(.+?)}}/g, '{{$1}}'),
+    authorization: auth,
+    headers: hdrs,
+    params,
+    body,
+    body_type: bodyType,
+    content_type: ct,
+  };
+}
 
 // ════════════════════════════════════════════════════════════
 // SIDEBAR TOGGLE + RESIZE
