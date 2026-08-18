@@ -632,13 +632,14 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--sh);
-  overflow: hidden;
+  overflow: visible;
 }
 .card-header {
   display: flex; align-items: center; gap: 10px;
   padding: 13px 18px;
   border-bottom: 1px solid var(--border);
   background: #FAFBFC;
+  border-radius: 12px 12px 0 0;
 }
 .card-title {
   font-weight: 700; font-size: 12px;
