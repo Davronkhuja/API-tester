@@ -1398,11 +1398,10 @@ pre.resp-pre {
 [data-theme="dark"] .url-history-drop { background: #0f2235; border-color: rgba(255,255,255,.1); }
 [data-theme="dark"] .url-hist-item:hover { background: rgba(0,212,160,.08); color: #00d4a0; }
 [data-theme="dark"] .ctx-menu { background: #0f2235; }
-[data-theme="dark"] .env-drawer { background: #0f2235; }
 [data-theme="dark"] .env-drop { background: #0f2235; }
 [data-theme="dark"] .env-drop-item.is-active { color: #00d4a0; background: rgba(0,212,160,.12); }
 [data-theme="dark"] .env-drop-check { color: #00d4a0; }
-[data-theme="dark"] .env-activate-btn.is-active { background: rgba(0,212,160,.12); border-color: #00d4a0; color: #00d4a0; }
+[data-theme="dark"] .env-modal { background: #0f2235; }
 [data-theme="dark"] .sb-env-item.active-env { background: rgba(0,212,160,.12); }
 [data-theme="dark"] .sb-env-item.active-env .sb-env-dot { background: #00d4a0; }
 [data-theme="dark"] .mpill-GET    { background: rgba(56,189,248,.15); color: #38bdf8; }
@@ -1471,32 +1470,60 @@ pre.resp-pre {
 .url-hist-method { font-family: var(--mono); font-size: 9px; font-weight: 800; min-width: 36px; }
 .url-hist-url { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── ENV DRAWER ────────────────────────────────────────── */
-.env-drawer {
-  position: fixed; right: 0; top: 58px; bottom: 0; z-index: 350;
-  width: 520px; background: var(--surface);
-  border-left: 1px solid var(--border-d);
+/* ── ENV MODAL ────────────────────────────────────────────── */
+.env-modal-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0,0,0,.6);
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.env-modal-overlay.open { display: flex; animation: fadeInBg .18s ease; }
+@keyframes fadeInBg { from { opacity: 0; } to { opacity: 1; } }
+.env-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-d);
+  border-radius: 14px;
+  width: 700px; max-width: 94vw;
+  max-height: 85vh;
   display: flex; flex-direction: column;
-  transform: translateX(100%); transition: transform .22s cubic-bezier(.4,0,.2,1);
-  box-shadow: -4px 0 24px rgba(0,0,0,.18);
+  box-shadow: 0 32px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06);
+  animation: slideUpModal .2s cubic-bezier(.34,1.26,.64,1);
+  overflow: hidden;
 }
-.env-drawer.open { transform: translateX(0); }
-.env-drawer-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 13px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+@keyframes slideUpModal { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.env-modal-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
-.env-drawer-name {
-  font-weight: 700; font-size: 15px; flex: 1; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.env-modal-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: var(--primary-bg); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.env-activate-btn {
-  font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer;
+.env-modal-name-input {
+  flex: 1; font-size: 16px; font-weight: 700; color: var(--text);
+  background: none; border: none; outline: none;
+  border-bottom: 2px solid transparent; padding: 2px 4px;
+  font-family: var(--sans); transition: border-color .15s;
+  min-width: 0;
+}
+.env-modal-name-input:focus { border-bottom-color: var(--primary); }
+.env-modal-activate {
+  font-size: 12px; padding: 5px 14px; border-radius: 7px; cursor: pointer;
   border: 1px solid var(--border-d); background: transparent; color: var(--muted);
-  font-weight: 600; transition: all .15s; white-space: nowrap;
+  font-weight: 600; transition: all .15s; white-space: nowrap; flex-shrink: 0;
 }
-.env-activate-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
-.env-activate-btn.is-active { background: rgba(74,222,128,.12); border-color: #4ade80; color: #4ade80; }
-.env-drawer-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.env-modal-activate:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.env-modal-activate.is-active { background: rgba(0,212,160,.12); border-color: #00d4a0; color: #00d4a0; }
+.env-modal-body {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0;
+}
+.env-modal-footer {
+  padding: 12px 20px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.env-modal-status { font-size: 12px; color: var(--muted); flex: 1; }
 /* env table */
 .env-tbl { width: 100%; border-collapse: collapse; }
 .env-tbl th {
@@ -2140,29 +2167,43 @@ pre.resp-pre {
 </div>
 <div class="curl-backdrop" id="curlBackdrop" onclick="closeCurlDrawer()" style="display:none;position:fixed;inset:0;z-index:299;"></div>
 
-<!-- ── ENV DRAWER ───────────────────────────────────────────── -->
-<div class="env-drawer" id="envDrawer">
-  <div class="env-drawer-header">
-    <span class="env-drawer-name" id="envDrawerName">Environment</span>
-    <button class="env-activate-btn" id="envActivateBtn" onclick="toggleEditingEnv()">Faollashtirish</button>
-    <button class="rp-close" onclick="closeEnvDrawer()" title="Yopish">×</button>
-  </div>
-  <div class="env-drawer-body">
-    <table class="env-tbl">
-      <thead>
-        <tr>
-          <th>Variable</th>
-          <th>Value</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="envTbody"></tbody>
-    </table>
-    <div class="env-add-row" onclick="addEnvTableRow()">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-      </svg>
-      Add variable
+<!-- ── ENV MODAL ───────────────────────────────────────────── -->
+<div class="env-modal-overlay" id="envModalOverlay" onclick="if(event.target===this)closeEnvModal()">
+  <div class="env-modal" id="envModal">
+    <div class="env-modal-header">
+      <div class="env-modal-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="7.5" stroke="currentColor" stroke-width="1.5"/>
+          <ellipse cx="9" cy="9" rx="3" ry="7.5" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M1.5 9h15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          <path d="M2.5 6h13M2.5 12h13" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".5"/>
+        </svg>
+      </div>
+      <input class="env-modal-name-input" id="envModalName" placeholder="Environment nomi" spellcheck="false" oninput="saveEnvName()">
+      <button class="env-modal-activate" id="envActivateBtn" onclick="toggleEditingEnv()">Faollashtirish</button>
+      <button class="rp-close" onclick="closeEnvModal()" title="Yopish">×</button>
+    </div>
+    <div class="env-modal-body">
+      <table class="env-tbl">
+        <thead>
+          <tr>
+            <th>O'zgaruvchi</th>
+            <th>Qiymat</th>
+            <th style="width:42px"></th>
+          </tr>
+        </thead>
+        <tbody id="envTbody"></tbody>
+      </table>
+      <div class="env-add-row" onclick="addEnvTableRow()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        O'zgaruvchi qo'shish
+      </div>
+    </div>
+    <div class="env-modal-footer">
+      <span class="env-modal-status" id="envModalStatus">Avtomatik saqlanadi</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeEnvModal()">Yopish</button>
     </div>
   </div>
 </div>
@@ -3452,6 +3493,9 @@ function toggleTheme() {
 // KEYBOARD SHORTCUTS
 // ════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (document.getElementById('envModalOverlay')?.classList.contains('open')) { closeEnvModal(); return; }
+  }
   const mod = e.metaKey || e.ctrlKey;
   if (!mod) return;
   // Don't intercept when typing in an input/textarea (except Cmd+B)
@@ -3646,13 +3690,17 @@ function activateEnv(id) {
 }
 
 function createEnvNamed() {
-  const name = prompt('Environment nomi:');
-  if (!name || !name.trim()) return;
   const envs = getEnvs();
-  envs.push({ id: 'env_' + Date.now(), name: name.trim(), vars: [] });
+  const newEnv = { id: 'env_' + Date.now(), name: 'Yangi muhit', vars: [] };
+  envs.push(newEnv);
   saveEnvs(envs);
   renderSbEnvList();
   renderEnvSelector();
+  editEnv(newEnv.id);
+  setTimeout(() => {
+    const inp = document.getElementById('envModalName');
+    if (inp) { inp.select(); inp.focus(); }
+  }, 80);
 }
 
 function editEnv(id) {
@@ -3660,12 +3708,12 @@ function editEnv(id) {
   const env  = envs.find(e => e.id === id);
   if (!env) return;
   _editingEnvId = id;
-  document.getElementById('envDrawerName').textContent = env.name;
+  document.getElementById('envModalName').value = env.name;
   _updateEnvActivateBtn();
   const tbody = document.getElementById('envTbody');
   tbody.innerHTML = '';
   (env.vars || []).forEach(({key, val}) => addEnvTableRow(key, val, false));
-  openEnvDrawer();
+  openEnvModal();
 }
 
 function _updateEnvActivateBtn() {
@@ -3673,7 +3721,7 @@ function _updateEnvActivateBtn() {
   if (!btn) return;
   const isActive = _editingEnvId && getActiveEnvId() === _editingEnvId;
   btn.textContent = isActive ? '● Faol' : 'Faollashtirish';
-  btn.className   = 'env-activate-btn' + (isActive ? ' is-active' : '');
+  btn.className   = 'env-modal-activate' + (isActive ? ' is-active' : '');
 }
 
 function toggleEditingEnv() {
@@ -3726,6 +3774,17 @@ function saveEnvToStorage() {
     vars.forEach(({key, val}) => { obj[key] = val; });
     localStorage.setItem(ENV_KEY, JSON.stringify(obj));
   }
+  const st = document.getElementById('envModalStatus');
+  if (st) { st.textContent = 'Saqlandi ✓'; clearTimeout(st._t); st._t = setTimeout(() => { st.textContent = 'Avtomatik saqlanadi'; }, 1200); }
+}
+
+function saveEnvName() {
+  if (!_editingEnvId) return;
+  const name = document.getElementById('envModalName').value.trim();
+  if (!name) return;
+  const envs = getEnvs();
+  const env = envs.find(e => e.id === _editingEnvId);
+  if (env) { env.name = name; saveEnvs(envs); renderSbEnvList(); renderEnvSelector(); }
 }
 
 function loadEnvFromStorage() {
@@ -3744,17 +3803,17 @@ function loadEnvFromStorage() {
   } catch {}
 }
 
-function openEnvDrawer() {
-  closeAllDrawers();
-  document.getElementById('envDrawer').classList.add('open');
-  document.getElementById('drawerBackdrop').style.display = 'block';
+function openEnvModal() {
+  document.getElementById('envModalOverlay').classList.add('open');
 }
-function closeEnvDrawer() {
+function closeEnvModal() {
   _editingEnvId = null;
-  document.getElementById('envDrawer').classList.remove('open');
-  document.getElementById('drawerBackdrop').style.display = 'none';
+  document.getElementById('envModalOverlay').classList.remove('open');
   renderSbEnvList();
+  renderEnvSelector();
 }
+function openEnvDrawer() { openEnvModal(); }
+function closeEnvDrawer() { closeEnvModal(); }
 loadEnvFromStorage();
 renderEnvSelector();
 
@@ -3883,7 +3942,6 @@ function closeHistDrawer() {
   document.getElementById('drawerBackdrop').style.display = 'none';
 }
 function closeAllDrawers() {
-  document.getElementById('envDrawer').classList.remove('open');
   document.getElementById('histDrawer').classList.remove('open');
   document.getElementById('drawerBackdrop').style.display = 'none';
 }
