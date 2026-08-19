@@ -484,6 +484,7 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   cursor: pointer; transition: background .12s;
 }
 .sb-hist-item:hover { background: rgba(255,255,255,.06); }
+.sb-hist-item.active-hist { background: rgba(79,126,247,.15); border-left: 2px solid var(--primary); padding-left: 8px; }
 .sb-hist-info { flex: 1; min-width: 0; }
 .sb-hist-url {
   font-size: 11.5px; color: rgba(255,255,255,.7);
@@ -862,6 +863,41 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   font-weight: 700; font-size: 12px;
   text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
 }
+/* Env selector (header) */
+.env-sel-wrap { position: relative; }
+.env-sel-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.07); cursor: pointer;
+  color: rgba(255,255,255,.82); font-size: 12px; font-weight: 500;
+  transition: all .15s; white-space: nowrap; max-width: 180px;
+}
+.env-sel-btn:hover { background: rgba(255,255,255,.13); }
+.env-sel-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.env-sel-dot.off { background: rgba(255,255,255,.28); }
+.env-sel-name { overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.env-sel-caret { flex-shrink: 0; opacity: .5; font-size: 9px; }
+.env-drop {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  background: #1a2334; border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  min-width: 190px; max-height: 320px; overflow-y: auto;
+  z-index: 9999; display: none; padding: 4px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+.env-drop.open { display: block; animation: ctxFadeIn .12s ease; }
+.env-drop-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 11px; border-radius: 6px; cursor: pointer;
+  font-size: 12.5px; color: rgba(255,255,255,.7); transition: background .1s;
+}
+.env-drop-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+.env-drop-item.is-active { color: #93B4FC; background: rgba(79,126,247,.15); }
+.env-drop-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.2); flex-shrink: 0; }
+.env-drop-dot.on { background: #4ade80; }
+.env-drop-check { font-size: 11px; margin-left: auto; color: #93B4FC; }
+
 .card-acts { margin-left: auto; display: flex; gap: 7px; }
 .req-name-sep { color: var(--muted); margin: 0 4px; font-size: 13px; }
 .req-name-lbl {
@@ -1488,6 +1524,14 @@ pre.resp-pre {
       Real-time natija
     </span>
   </div>
+  <div class="env-sel-wrap" id="envSelWrap">
+    <button class="env-sel-btn" id="envSelBtn" onclick="toggleEnvDrop()">
+      <span class="env-sel-dot off" id="envSelDot"></span>
+      <span class="env-sel-name" id="envSelName">Env yo'q</span>
+      <span class="env-sel-caret">▾</span>
+    </button>
+    <div class="env-drop" id="envDrop"></div>
+  </div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Qorong'i / Yorqin rejim">🌙</button>
 </header>
 
@@ -2009,6 +2053,8 @@ let searchQuery = '';
 // url history focus index
 let _urlHistIdx = -1;
 let _urlHistFiltered = [];
+
+let activeHistId = null;
 
 
 // ════════════════════════════════════════════════════════════
@@ -2887,6 +2933,57 @@ async function duplicateReq(rid) {
   }
 }
 
+// ════════════════════════════════════════════════════════════
+// ENV SELECTOR (header)
+// ════════════════════════════════════════════════════════════
+function renderEnvSelector() {
+  const dot  = document.getElementById('envSelDot');
+  const name = document.getElementById('envSelName');
+  if (!dot || !name) return;
+  const actId = getActiveEnvId();
+  const envs  = getEnvs();
+  const active = actId ? envs.find(e => e.id === actId) : null;
+  dot.className  = 'env-sel-dot' + (active ? '' : ' off');
+  name.textContent = active ? active.name : "Env yo'q";
+}
+
+function toggleEnvDrop() {
+  const drop = document.getElementById('envDrop');
+  if (!drop) return;
+  if (drop.classList.contains('open')) { closeEnvDrop(); return; }
+  _buildEnvDrop();
+  drop.classList.add('open');
+  setTimeout(() => document.addEventListener('click', _onEnvDropOutside, {once: true}), 0);
+}
+function _onEnvDropOutside(e) {
+  const wrap = document.getElementById('envSelWrap');
+  if (wrap && wrap.contains(e.target)) {
+    setTimeout(() => document.addEventListener('click', _onEnvDropOutside, {once: true}), 0);
+  } else { closeEnvDrop(); }
+}
+function closeEnvDrop() {
+  const drop = document.getElementById('envDrop');
+  if (drop) drop.classList.remove('open');
+}
+function _buildEnvDrop() {
+  const drop = document.getElementById('envDrop');
+  if (!drop) return;
+  const actId = getActiveEnvId();
+  const envs  = getEnvs();
+  drop.innerHTML = `
+    <div class="env-drop-item ${!actId ? 'is-active' : ''}" onclick="activateEnv(null);closeEnvDrop()">
+      <span class="env-drop-dot"></span>
+      <span>No environment</span>
+      ${!actId ? '<span class="env-drop-check">✓</span>' : ''}
+    </div>` +
+    envs.map(e => `
+    <div class="env-drop-item ${e.id === actId ? 'is-active' : ''}" onclick="activateEnv('${ea(e.id)}');closeEnvDrop()">
+      <span class="env-drop-dot ${e.id === actId ? 'on' : ''}"></span>
+      <span>${eh(e.name)}</span>
+      ${e.id === actId ? '<span class="env-drop-check">✓</span>' : ''}
+    </div>`).join('');
+}
+
 function updateReqTitle() {
   const sep = document.getElementById('reqNameSep');
   const lbl = document.getElementById('reqNameLbl');
@@ -3397,10 +3494,12 @@ function renderSbEnvList() {
 
 function activateEnv(id) {
   const actId = getActiveEnvId();
-  setActiveEnvId(actId === id ? null : id);  // toggle
+  const newId = id === null ? null : (actId === id ? null : id);
+  setActiveEnvId(newId);
   renderSbEnvList();
-  const env = getEnvs().find(e => e.id === id);
-  showToast(actId === id ? 'Environment o\'chirildi' : `"${env?.name}" faollashtirildi`, 'info');
+  renderEnvSelector();
+  const env = id ? getEnvs().find(e => e.id === id) : null;
+  showToast(newId ? `"${env?.name}" faollashtirildi` : "Environment o'chirildi", 'info');
 }
 
 function createEnvNamed() {
@@ -3410,6 +3509,7 @@ function createEnvNamed() {
   envs.push({ id: 'env_' + Date.now(), name: name.trim(), vars: [] });
   saveEnvs(envs);
   renderSbEnvList();
+  renderEnvSelector();
 }
 
 function editEnv(id) {
@@ -3430,6 +3530,7 @@ function deleteEnvNamed(id) {
     saveEnvs(envs);
     if (getActiveEnvId() === id) setActiveEnvId(null);
     renderSbEnvList();
+    renderEnvSelector();
   });
 }
 
@@ -3483,6 +3584,7 @@ function closeEnvDrawer() {
   renderSbEnvList();
 }
 loadEnvFromStorage();
+renderEnvSelector();
 
 // ════════════════════════════════════════════════════════════
 // REQUEST HISTORY
@@ -3519,11 +3621,17 @@ function renderSbHistList() {
     const t = new Date(x.timestamp);
     const tstr = t.toLocaleDateString('uz') + ' ' + t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     const shortUrl = (x.url || '').replace(/^https?:\/\//, '').slice(0, 55);
-    return `<div class="sb-hist-item" onclick="loadFromHistory(${ea(JSON.stringify(JSON.stringify(x)))})">
+    const isActive = x.id === activeHistId;
+    const hasResults = x.results && x.results.length > 0;
+    const sum = x.summary || {};
+    const meta = hasResults
+      ? `${tstr} · ✓${sum.successful||0} ✗${sum.failed||0}`
+      : tstr;
+    return `<div class="sb-hist-item ${isActive ? 'active-hist' : ''}" onclick="loadFromHistory(${ea(JSON.stringify(JSON.stringify(x)))})">
       <span class="mpill mpill-${ea(x.method || 'GET')}">${eh(x.method || 'GET')}</span>
       <div class="sb-hist-info">
         <div class="sb-hist-url">${eh(shortUrl)}</div>
-        <div class="sb-hist-meta">${eh(tstr)}</div>
+        <div class="sb-hist-meta">${eh(meta)}</div>
       </div>
       <button class="sb-hist-del" onclick="event.stopPropagation();deleteHistItem(${x.id})" title="O'chirish">×</button>
     </div>`;
@@ -3549,7 +3657,9 @@ function loadFromHistory(jsonStr) {
 
     updateMethodColor(); updateBodyHL(); updateBeautifyVisibility();
     activeReqId = null; saveEditId = null;
+    activeHistId = x.id || null;
     renderTree(); updateReqTitle();
+    renderSbHistList();
     _savedSnapshot = null; btnSave.disabled = false;
 
     if (x.results && x.results.length) {
