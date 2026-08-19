@@ -2202,8 +2202,9 @@ pre.resp-pre {
       </div>
     </div>
     <div class="env-modal-footer">
-      <span class="env-modal-status" id="envModalStatus">Avtomatik saqlanadi</span>
-      <button class="btn btn-ghost btn-sm" onclick="closeEnvModal()">Yopish</button>
+      <span class="env-modal-status" id="envModalStatus"></span>
+      <button class="btn btn-ghost btn-sm" onclick="closeEnvModal()">Bekor qilish</button>
+      <button class="btn btn-primary btn-sm" onclick="saveEnvAndClose()">Saqlash</button>
     </div>
   </div>
 </div>
@@ -3739,8 +3740,7 @@ function addEnvTableRow(key='', val='', focusKey=true) {
   tr.innerHTML = `
     <td class="env-tbl-cell"><input class="env-tbl-inp env-key" placeholder="Variable" value="${ea(key)}"></td>
     <td class="env-tbl-cell"><input class="env-tbl-inp env-val" placeholder="Value" value="${ea(val)}"></td>
-    <td><button class="env-tbl-del" onclick="this.closest('tr').remove();saveEnvToStorage()">×</button></td>`;
-  tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', saveEnvToStorage));
+    <td><button class="env-tbl-del" onclick="this.closest('tr').remove()">×</button></td>`;
   tbody.appendChild(tr);
   if (focusKey) tr.querySelector('.env-key').focus();
 }
@@ -3769,13 +3769,15 @@ function saveEnvToStorage() {
     const envs = getEnvs();
     const env  = envs.find(e => e.id === _editingEnvId);
     if (env) { env.vars = vars; saveEnvs(envs); }
-  } else {
-    const obj = {};
-    vars.forEach(({key, val}) => { obj[key] = val; });
-    localStorage.setItem(ENV_KEY, JSON.stringify(obj));
   }
+}
+
+function saveEnvAndClose() {
+  saveEnvName();
+  saveEnvToStorage();
   const st = document.getElementById('envModalStatus');
-  if (st) { st.textContent = 'Saqlandi ✓'; clearTimeout(st._t); st._t = setTimeout(() => { st.textContent = 'Avtomatik saqlanadi'; }, 1200); }
+  if (st) st.textContent = 'Saqlandi ✓';
+  setTimeout(() => closeEnvModal(), 500);
 }
 
 function saveEnvName() {
