@@ -365,12 +365,12 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 
 /* ── SIDEBAR ──────────────────────────────────────────────── */
 .sidebar {
-  width: 256px;
+  width: 272px;
   flex-shrink: 0;
   background: var(--sb);
   border-right: 1px solid rgba(255,255,255,.05);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   overflow: hidden;
   transition: width .22s cubic-bezier(.4,0,.2,1);
 }
@@ -396,31 +396,39 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .sb-resizer-toggle:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-/* ── SIDEBAR TAB BAR ──────────────────────────────────────── */
+/* ── SIDEBAR ICON RAIL (left vertical strip) ─────────────── */
 .sb-tab-bar {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 8px 6px;
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  gap: 4px;
+  padding: 10px 4px;
+  width: 44px;
   flex-shrink: 0;
+  border-right: 1px solid rgba(255,255,255,.07);
+}
+.sb-content-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
 }
 .sb-tab-ico {
-  width: 38px; height: 38px;
+  width: 36px; height: 36px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 9px;
   cursor: pointer;
-  color: rgba(255,255,255,.28);
+  color: rgba(255,255,255,.38);
   background: transparent; border: none;
   transition: all .15s; position: relative;
 }
-.sb-tab-ico:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.65); }
+.sb-tab-ico:hover { background: rgba(255,255,255,.08); color: rgba(255,255,255,.7); }
 .sb-tab-ico.active { background: rgba(79,126,247,.22); color: #93B4FC; }
 .sb-tab-ico.active::after {
-  content: ''; position: absolute; bottom: -8px; left: 50%;
-  transform: translateX(-50%);
-  width: 16px; height: 2px; border-radius: 2px;
+  content: ''; position: absolute; right: -5px; top: 50%;
+  transform: translateY(-50%);
+  width: 2px; height: 16px; border-radius: 2px;
   background: var(--primary);
 }
 
@@ -1406,8 +1414,8 @@ pre.resp-pre {
 [data-theme="dark"] .sb-item.active { background: rgba(0,212,160,.15); }
 [data-theme="dark"] .sb-item.active::before { background: #00d4a0; }
 [data-theme="dark"] .sb-item.active .sb-item-name { color: #00d4a0; }
-[data-theme="dark"] .sb-tab-ico { color: rgba(255,255,255,.5); }
-[data-theme="dark"] .sb-tab-ico:hover { color: rgba(255,255,255,.8); background: rgba(255,255,255,.07); }
+[data-theme="dark"] .sb-tab-ico { color: rgba(255,255,255,.45); }
+[data-theme="dark"] .sb-tab-ico:hover { color: rgba(255,255,255,.75); background: rgba(255,255,255,.07); }
 [data-theme="dark"] .sb-tab-ico.active { background: rgba(0,212,160,.18); color: #00d4a0; }
 [data-theme="dark"] .sb-tab-ico.active::after { background: #00d4a0; }
 [data-theme="dark"] .sb-hist-item.active-hist { border-left-color: #00d4a0; }
@@ -1778,6 +1786,9 @@ pre.resp-pre {
     </button>
   </div>
 
+  <!-- ── PANEL CONTENT AREA ───────────────── -->
+  <div class="sb-content-wrap">
+
   <!-- ── COLLECTIONS PANEL ─────────────────── -->
   <div class="sb-panel active" id="panel-collections">
     <div class="sb-panel-toolbar">
@@ -1840,6 +1851,8 @@ pre.resp-pre {
     </div>
     <div class="sb-hist-list" id="sbHistList"></div>
   </div>
+
+  </div><!-- end sb-content-wrap -->
 
 </aside>
 
