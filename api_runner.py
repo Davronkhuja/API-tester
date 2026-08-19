@@ -1692,7 +1692,7 @@ pre.resp-pre {
     <div class="modal-title">Tasdiqlash</div>
     <div class="confirm-msg" id="confirmMsg"></div>
     <div class="modal-btns">
-      <button class="modal-cancel" id="confirmCancelBtn">Bekor</button>
+      <button class="modal-cancel" id="confirmCancelBtn">Bekor qilish</button>
       <button class="modal-confirm" style="background:#DC2626" id="confirmOkBtn">O'chirish</button>
     </div>
   </div>
@@ -1713,7 +1713,7 @@ pre.resp-pre {
       </select>
     </div>
     <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeSaveModal()">Bekor</button>
+      <button class="modal-cancel" onclick="closeSaveModal()">Bekor qilish</button>
       <button class="modal-confirm" onclick="confirmSave()">Saqlash</button>
     </div>
   </div>
@@ -1728,7 +1728,7 @@ pre.resp-pre {
       <input id="folderName" class="modal-input" placeholder="User API, Auth, Orders..." maxlength="60">
     </div>
     <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeFolderModal()">Bekor</button>
+      <button class="modal-cancel" onclick="closeFolderModal()">Bekor qilish</button>
       <button class="modal-confirm" onclick="confirmFolder()">Saqlash</button>
     </div>
   </div>
@@ -1741,11 +1741,11 @@ pre.resp-pre {
     <div class="modal-field">
       <div class="modal-label">Papkani tanlang</div>
       <select id="moveFolderSel" class="modal-select">
-        <option value="">— Papkasiz (root) —</option>
+        <option value="">— Papkasiz —</option>
       </select>
     </div>
     <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeMoveModal()">Bekor</button>
+      <button class="modal-cancel" onclick="closeMoveModal()">Bekor qilish</button>
       <button class="modal-confirm" onclick="confirmMove()">Ko'chirish</button>
     </div>
   </div>
@@ -1810,7 +1810,7 @@ pre.resp-pre {
           <path d="M7 5.5v3M5.5 7h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
         </svg>
       </button>
-      <button class="sb-tool-btn" onclick="triggerPostmanImport()" title="Postman import">
+      <button class="sb-tool-btn" onclick="triggerPostmanImport()" title="Postman importi">
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
           <path d="M6.5 1v8M4 6l2.5 3L9 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M1 10.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -1857,7 +1857,7 @@ pre.resp-pre {
 </aside>
 
 <div class="sb-resizer" id="sbResizer">
-  <button class="sb-resizer-toggle" id="sbResizerToggle" onclick="toggleSidebar()" title="Sidebar yashirish / ko'rsatish">◀</button>
+  <button class="sb-resizer-toggle" id="sbResizerToggle" onclick="toggleSidebar()" title="Panelni yashirish / ko'rsatish">◀</button>
 </div>
 
 <!-- ─── CONTENT AREA ────────────────────────────────────── -->
@@ -1977,7 +1977,7 @@ pre.resp-pre {
   "name": "{{name}}"
 }'></textarea>
           </div>
-          <button class="btn-beautify" id="btnBeautify" onclick="beautifyBody()" title="JSON ni chiroyli formatlash">✦ Beautify</button>
+          <button class="btn-beautify" id="btnBeautify" onclick="beautifyBody()" title="JSONni chiroyli formatlash">✦ Beautify</button>
         </div>
         <div id="multipartWrap" class="hidden">
           <table class="kv-table" id="multipartTable">
@@ -2052,7 +2052,7 @@ pre.resp-pre {
         </div>
         <div class="ssl-check-wrap">
           <input type="checkbox" id="sslVerify" checked>
-          <label for="sslVerify">SSL tekshir</label>
+          <label for="sslVerify">SSL tekshirish</label>
         </div>
       </div>
 
@@ -2982,7 +2982,7 @@ function openMoveModal(rid) {
   moveReqId = rid;
   const r = db.requests.find(x => x.id === rid);
   const sel = document.getElementById('moveFolderSel');
-  sel.innerHTML = '<option value="">— Papkasiz (root) —</option>' +
+  sel.innerHTML = '<option value="">— Papkasiz —</option>' +
     db.folders.map(f => `<option value="${ea(f.id)}" ${r && r.folder_id === f.id ? 'selected' : ''}>${eh(f.name)}</option>`).join('');
   document.getElementById('moveModal').classList.remove('hidden');
 }
@@ -3050,7 +3050,7 @@ function showReqMenu(e, rid) {
   menu.className = 'ctx-menu'; menu.id = 'ctxMenu';
   menu.innerHTML = `
     <div class="ctx-item" onclick="closeCtxMenu();startRenameReq('${ea(rid)}')">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg>Nomi o'zgartirish</div>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg>Nomini o'zgartirish</div>
     <div class="ctx-item" onclick="closeCtxMenu();duplicateReq('${ea(rid)}')">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M2 11V2h9"/></svg>Nusxalash</div>
     <div class="ctx-item" onclick="closeCtxMenu();openMoveModal('${ea(rid)}')">
@@ -3131,7 +3131,7 @@ function _buildEnvDrop() {
   drop.innerHTML = `
     <div class="env-drop-item ${!actId ? 'is-active' : ''}" onclick="activateEnv(null);closeEnvDrop()">
       <span class="env-drop-dot"></span>
-      <span>No environment</span>
+      <span>Env yo'q</span>
       ${!actId ? '<span class="env-drop-check">✓</span>' : ''}
     </div>` +
     envs.map(e => `
@@ -3698,7 +3698,7 @@ function addEnvTableRow(key='', val='', focusKey=true) {
 }
 
 function deleteEnvNamed(id) {
-  showConfirm("Bu environment o'chirilsinmi?", "O'chirish", () => {
+  showConfirm("Bu environmentni o'chirmoqchimisiz?", "O'chirish", () => {
     let envs = getEnvs().filter(e => e.id !== id);
     saveEnvs(envs);
     if (getActiveEnvId() === id) setActiveEnvId(null);
@@ -3776,7 +3776,7 @@ function addToHistory(entry) {
   renderHistory();
 }
 function clearHistory() {
-  showConfirm("Barcha tarix o'chirilsinmi?", "O'chirish", () => {
+  showConfirm("Barcha tarixni o'chirmoqchimisiz?", "O'chirish", () => {
     localStorage.removeItem(HIST_KEY);
     renderSbHistList();
   });
