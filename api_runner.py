@@ -1362,34 +1362,66 @@ pre.resp-pre {
 /* ── ENV DRAWER ────────────────────────────────────────── */
 .env-drawer {
   position: fixed; right: 0; top: 58px; bottom: 0; z-index: 350;
-  width: 380px; background: var(--surface);
+  width: 520px; background: var(--surface);
   border-left: 1px solid var(--border-d);
   display: flex; flex-direction: column;
   transform: translateX(100%); transition: transform .22s cubic-bezier(.4,0,.2,1);
-  box-shadow: -4px 0 20px rgba(0,0,0,.15);
+  box-shadow: -4px 0 24px rgba(0,0,0,.18);
 }
 .env-drawer.open { transform: translateX(0); }
 .env-drawer-header {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  padding: 13px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.env-drawer-title { font-weight: 700; font-size: 14px; flex: 1; color: var(--text); }
-.env-drawer-body { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
-.env-row { display: grid; grid-template-columns: 1fr 1fr 26px; gap: 6px; align-items: center; }
-.env-input {
-  padding: 6px 8px; border: 1px solid var(--border-d); border-radius: 5px;
-  font-size: 12px; font-family: var(--mono); color: var(--text); background: var(--bg);
-  outline: none; width: 100%;
+.env-drawer-name {
+  font-weight: 700; font-size: 15px; flex: 1; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.env-input:focus { border-color: var(--primary); }
-.env-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; line-height: 1; text-align: center; border-radius: 3px; }
-.env-del:hover { color: var(--error); background: var(--error-bg); }
-.env-add-btn {
-  padding: 7px; border-radius: 6px; background: transparent;
-  border: 1px dashed var(--border-d); color: var(--muted); cursor: pointer;
-  font-size: 12px; font-weight: 600; text-align: center; transition: all .15s;
+.env-activate-btn {
+  font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border-d); background: transparent; color: var(--muted);
+  font-weight: 600; transition: all .15s; white-space: nowrap;
 }
-.env-add-btn:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
+.env-activate-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+.env-activate-btn.is-active { background: rgba(74,222,128,.12); border-color: #4ade80; color: #4ade80; }
+.env-drawer-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+/* env table */
+.env-tbl { width: 100%; border-collapse: collapse; }
+.env-tbl th {
+  text-align: left; padding: 8px 16px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg);
+  position: sticky; top: 0;
+}
+.env-tbl-row { border-bottom: 1px solid var(--border); transition: background .1s; }
+.env-tbl-row:hover { background: rgba(79,126,247,.04); }
+[data-theme=dark] .env-tbl-row:hover { background: rgba(255,255,255,.04); }
+.env-tbl-cell { padding: 0; vertical-align: middle; }
+.env-tbl-cell:first-child { border-right: 1px solid var(--border); width: 42%; }
+.env-tbl-inp {
+  width: 100%; padding: 9px 16px; box-sizing: border-box;
+  background: none; border: none; outline: none;
+  font-size: 13px; font-family: var(--mono); color: var(--text);
+}
+.env-tbl-inp:focus { background: rgba(79,126,247,.05); }
+.env-tbl-del {
+  width: 34px; padding: 8px; display: block;
+  background: none; border: none; cursor: pointer;
+  color: transparent; font-size: 15px; line-height: 1;
+  transition: color .12s;
+}
+.env-tbl-row:hover .env-tbl-del { color: var(--muted); }
+.env-tbl-del:hover { color: var(--error) !important; }
+.env-add-row {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 16px; cursor: pointer;
+  color: var(--muted); font-size: 12.5px;
+  border-top: 1px dashed var(--border); transition: all .12s;
+}
+.env-add-row:hover { background: var(--primary-bg); color: var(--primary); }
+.env-empty-hint {
+  padding: 24px 20px; font-size: 12.5px; color: var(--muted); line-height: 1.6;
+}
 .env-hint { font-size: 11px; color: var(--muted); padding: 4px 0 8px; line-height: 1.5; }
 
 /* ── HISTORY DRAWER ────────────────────────────────────── */
@@ -1994,18 +2026,27 @@ pre.resp-pre {
 <!-- ── ENV DRAWER ───────────────────────────────────────────── -->
 <div class="env-drawer" id="envDrawer">
   <div class="env-drawer-header">
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>
-      <path d="M8 4v1M8 11v1M4 8h1M11 8h1M5.6 5.6l.7.7M9.7 9.7l.7.7M5.6 10.4l.7-.7M9.7 6.3l.7-.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
-    </svg>
-    <span class="env-drawer-title">Muhit o'zgaruvchilari (ENV)</span>
+    <span class="env-drawer-name" id="envDrawerName">Environment</span>
+    <button class="env-activate-btn" id="envActivateBtn" onclick="toggleEditingEnv()">Faollashtirish</button>
     <button class="rp-close" onclick="closeEnvDrawer()" title="Yopish">×</button>
   </div>
-  <div class="env-drawer-body" id="envList">
-    <div class="env-hint">O'zgaruvchilar URL, header, body va auth ichida <b>{{nom}}</b> ko'rinishida ishlatiladi. Fayl qatorlari ustunlik qiladi.</div>
-  </div>
-  <div style="padding:0 16px 16px;">
-    <button class="env-add-btn" onclick="addEnvRow()">+ O'zgaruvchi qo'shish</button>
+  <div class="env-drawer-body">
+    <table class="env-tbl">
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Value</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="envTbody"></tbody>
+    </table>
+    <div class="env-add-row" onclick="addEnvTableRow()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+      Add variable
+    </div>
   </div>
 </div>
 
@@ -3421,22 +3462,7 @@ function loadEnvFromStorage() {
     Object.entries(saved).forEach(([k, v]) => addEnvRow(k, v));
   } catch {}
 }
-function addEnvRow(key='', val='') {
-  const wrap = document.getElementById('envList');
-  const hint = wrap.querySelector('.env-hint');
-  const row = document.createElement('div');
-  row.className = 'env-row';
-  row.innerHTML = `
-    <input class="env-input env-key" placeholder="KEY" value="${ea(key)}">
-    <input class="env-input env-val" placeholder="value" value="${ea(val)}">
-    <button class="env-del" onclick="this.closest('.env-row').remove();saveEnvToStorage()">×</button>`;
-  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', saveEnvToStorage));
-  if (hint && hint.nextSibling) {
-    wrap.insertBefore(row, hint.nextSibling);
-  } else {
-    wrap.appendChild(row);
-  }
-}
+function addEnvRow(key='', val='') { addEnvTableRow(key, val, false); }
 // ════════════════════════════════════════════════════════════
 // SIDEBAR PANEL SWITCHING
 // ════════════════════════════════════════════════════════════
@@ -3516,12 +3542,42 @@ function editEnv(id) {
   const envs = getEnvs();
   const env  = envs.find(e => e.id === id);
   if (!env) return;
-  // Repurpose the existing envDrawer for editing this named env
   _editingEnvId = id;
-  const wrap = document.getElementById('envList');
-  wrap.innerHTML = `<p class="env-hint">Tahrirlash: <b>${eh(env.name)}</b></p>`;
-  (env.vars || []).forEach(({key, val}) => addEnvRow(key, val));
+  document.getElementById('envDrawerName').textContent = env.name;
+  _updateEnvActivateBtn();
+  const tbody = document.getElementById('envTbody');
+  tbody.innerHTML = '';
+  (env.vars || []).forEach(({key, val}) => addEnvTableRow(key, val, false));
   openEnvDrawer();
+}
+
+function _updateEnvActivateBtn() {
+  const btn = document.getElementById('envActivateBtn');
+  if (!btn) return;
+  const isActive = _editingEnvId && getActiveEnvId() === _editingEnvId;
+  btn.textContent = isActive ? '● Faol' : 'Faollashtirish';
+  btn.className   = 'env-activate-btn' + (isActive ? ' is-active' : '');
+}
+
+function toggleEditingEnv() {
+  if (!_editingEnvId) return;
+  const actId = getActiveEnvId();
+  activateEnv(actId === _editingEnvId ? null : _editingEnvId);
+  _updateEnvActivateBtn();
+}
+
+function addEnvTableRow(key='', val='', focusKey=true) {
+  const tbody = document.getElementById('envTbody');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.className = 'env-tbl-row';
+  tr.innerHTML = `
+    <td class="env-tbl-cell"><input class="env-tbl-inp env-key" placeholder="Variable" value="${ea(key)}"></td>
+    <td class="env-tbl-cell"><input class="env-tbl-inp env-val" placeholder="Value" value="${ea(val)}"></td>
+    <td><button class="env-tbl-del" onclick="this.closest('tr').remove();saveEnvToStorage()">×</button></td>`;
+  tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', saveEnvToStorage));
+  tbody.appendChild(tr);
+  if (focusKey) tr.querySelector('.env-key').focus();
 }
 
 function deleteEnvNamed(id) {
@@ -3537,7 +3593,7 @@ function deleteEnvNamed(id) {
 let _editingEnvId = null;
 
 function saveEnvToStorage() {
-  const rows = document.querySelectorAll('#envList .env-row');
+  const rows = document.querySelectorAll('#envTbody .env-tbl-row');
   const vars = [];
   rows.forEach(row => {
     const key = row.querySelector('.env-key')?.value?.trim() || '';
@@ -3549,7 +3605,6 @@ function saveEnvToStorage() {
     const env  = envs.find(e => e.id === _editingEnvId);
     if (env) { env.vars = vars; saveEnvs(envs); }
   } else {
-    // legacy single-env save
     const obj = {};
     vars.forEach(({key, val}) => { obj[key] = val; });
     localStorage.setItem(ENV_KEY, JSON.stringify(obj));
