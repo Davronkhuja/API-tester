@@ -564,8 +564,6 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   border-radius: 100px;
   font-family: var(--mono);
 }
-.sb-folder-acts { display: none; gap: 1px; }
-.sb-folder-head:hover .sb-folder-acts { display: flex; }
 .sb-folder-body { padding-left: 14px; }
 
 /* Request item */
@@ -602,17 +600,52 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-top: 1px;
 }
-.sb-item-acts { display: none; gap: 1px; flex-shrink: 0; }
+.sb-item-acts { display: none; flex-shrink: 0; }
 .sb-item:hover .sb-item-acts { display: flex; }
+.sb-folder-acts { display: none; gap: 1px; }
+.sb-folder-head:hover .sb-folder-acts { display: flex; }
 .sb-act {
-  padding: 2px 4px;
+  padding: 3px 6px;
   background: none; border: none;
-  border-radius: 3px; cursor: pointer;
-  color: rgba(255,255,255,.3); font-size: 12px; line-height: 1;
+  border-radius: 4px; cursor: pointer;
+  color: rgba(255,255,255,.35); font-size: 14px; line-height: 1;
   transition: all .12s;
+  letter-spacing: 1px;
 }
 .sb-act:hover { background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); }
 .sb-act.del:hover { background: rgba(220,38,38,.25); color: #FCA5A5; }
+
+/* Context menu */
+.ctx-menu {
+  position: fixed;
+  background: #1a2334;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.5);
+  z-index: 9999;
+  min-width: 170px;
+  padding: 4px;
+  animation: ctxFadeIn .1s ease;
+}
+@keyframes ctxFadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: rgba(255,255,255,.72);
+  transition: background .1s;
+  user-select: none;
+}
+.ctx-item svg { width: 13px; height: 13px; flex-shrink: 0; opacity: .7; }
+.ctx-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+.ctx-item:hover svg { opacity: 1; }
+.ctx-item.ctx-danger { color: #FCA5A5; }
+.ctx-item.ctx-danger:hover { background: rgba(220,38,38,.18); color: #fca5a5; }
+.ctx-sep { height: 1px; background: rgba(255,255,255,.07); margin: 3px 4px; }
 
 /* Method pills */
 .mpill {
@@ -2453,8 +2486,7 @@ function renderTree() {
           <span class="sb-folder-name" id="fn-${ea(folder.id)}">${eh(folder.name)}</span>
           <span class="sb-folder-count">${folderReqs.length}</span>
           <div class="sb-folder-acts">
-            <button class="sb-act" onclick="event.stopPropagation();openFolderModal('${ea(folder.id)}')" title="Nomini o'zgartirish">✎</button>
-            <button class="sb-act del" onclick="event.stopPropagation();deleteFolder('${ea(folder.id)}')" title="O'chirish">×</button>
+            <button class="sb-act" onclick="event.stopPropagation();showFolderMenu(event,'${ea(folder.id)}')" title="Amallar">···</button>
           </div>
         </div>
         ${isOpen ? `<div class="sb-folder-body" id="fb-${ea(folder.id)}">
@@ -2494,9 +2526,7 @@ function reqItem(r) {
         <div class="sb-item-url">${eh(shortUrl)}</div>
       </div>
       <div class="sb-item-acts">
-        <button class="sb-act" onclick="event.stopPropagation();openMoveModal('${ea(r.id)}')" title="Papkaga ko'chirish">⇄</button>
-        <button class="sb-act" onclick="event.stopPropagation();startRenameReq('${ea(r.id)}')" title="Nomi o'zgartirish">✎</button>
-        <button class="sb-act del" onclick="event.stopPropagation();deleteReq('${ea(r.id)}')" title="O'chirish">×</button>
+        <button class="sb-act" onclick="event.stopPropagation();showReqMenu(event,'${ea(r.id)}')" title="Amallar">···</button>
       </div>
     </div>`;
 }
@@ -2761,6 +2791,73 @@ async function deleteReq(rid) {
     await loadDB();
     showToast('"' + name + '" o\'chirildi', 'info');
   });
+}
+
+// ════════════════════════════════════════════════════════════
+// CONTEXT MENU
+// ════════════════════════════════════════════════════════════
+function closeCtxMenu() {
+  const m = document.getElementById('ctxMenu');
+  if (m) m.remove();
+}
+
+function _placeMenu(menu, triggerEl) {
+  document.body.appendChild(menu);
+  const rect = triggerEl.getBoundingClientRect();
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  let top = rect.bottom + 4, left = rect.left;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  if (top + mh > window.innerHeight - 8) top = rect.top - mh - 4;
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+  setTimeout(() => document.addEventListener('click', closeCtxMenu, {once: true}), 0);
+}
+
+function showReqMenu(e, rid) {
+  closeCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu'; menu.id = 'ctxMenu';
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="closeCtxMenu();startRenameReq('${ea(rid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg>Nomi o'zgartirish</div>
+    <div class="ctx-item" onclick="closeCtxMenu();duplicateReq('${ea(rid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M2 11V2h9"/></svg>Nusxalash</div>
+    <div class="ctx-item" onclick="closeCtxMenu();openMoveModal('${ea(rid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8h12M8 2l6 6-6 6"/></svg>Papkaga ko'chirish</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item ctx-danger" onclick="closeCtxMenu();deleteReq('${ea(rid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3h4v2M6 8v5M10 8v5M4 5l1 8h6l1-8"/></svg>O'chirish</div>`;
+  _placeMenu(menu, e.currentTarget || e.target);
+}
+
+function showFolderMenu(e, fid) {
+  closeCtxMenu();
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu'; menu.id = 'ctxMenu';
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="closeCtxMenu();openFolderModal('${ea(fid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg>Nomini o'zgartirish</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item ctx-danger" onclick="closeCtxMenu();deleteFolder('${ea(fid)}')">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5h10M6 5V3h4v2M6 8v5M10 8v5M4 5l1 8h6l1-8"/></svg>O'chirish</div>`;
+  _placeMenu(menu, e.currentTarget || e.target);
+}
+
+async function duplicateReq(rid) {
+  const r = db.requests.find(x => x.id === rid);
+  if (!r) return;
+  const copy = JSON.parse(JSON.stringify(r));
+  delete copy.id;
+  copy.name = r.name + ' (copy)';
+  const resp = await fetch('/saved/request', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(copy),
+  });
+  if (resp.ok) {
+    await loadDB();
+    showToast('"' + copy.name + '" yaratildi', 'success');
+  }
 }
 
 function startRenameReq(rid) {
