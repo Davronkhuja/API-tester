@@ -863,6 +863,21 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
   text-transform: uppercase; letter-spacing: .7px; color: var(--muted);
 }
 .card-acts { margin-left: auto; display: flex; gap: 7px; }
+.req-name-sep { color: var(--muted); margin: 0 4px; font-size: 13px; }
+.req-name-lbl {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  cursor: pointer; border-radius: 4px; padding: 1px 5px;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background .12s;
+}
+.req-name-lbl:hover { background: rgba(0,0,0,.06); }
+[data-theme=dark] .req-name-lbl:hover { background: rgba(255,255,255,.08); }
+.req-name-inp {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  background: none; border: 1px solid var(--primary);
+  border-radius: 4px; padding: 1px 5px; outline: none;
+  max-width: 260px;
+}
 .btn-curl {
   display: flex; align-items: center; gap: 5px;
   padding: 5px 13px;
@@ -1660,6 +1675,8 @@ pre.resp-pre {
   <div class="card">
     <div class="card-header">
       <span class="card-title">So'rov</span>
+      <span class="req-name-sep" id="reqNameSep" style="display:none">·</span>
+      <span class="req-name-lbl" id="reqNameLbl" style="display:none" onclick="startRenameReqTitle()"></span>
       <div class="card-acts">
         <button class="btn-curl" id="btnCurl" onclick="copyCurl()" title="CURL ko'chirish">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -2219,8 +2236,9 @@ async function startRun() {
     multipart_fields: bt === 'multipart' ? getKv('multipartTable') : [],
     rows,
   };
-  // save to history
-  addToHistory({ method: config.method, url, timestamp: Date.now() });
+  const _histConfig = { method: config.method, url, authorization: config.authorization,
+    params: config.params, headers: config.headers, body: config.body,
+    content_type: config.content_type, body_type: config.body_type };
 
   allResults = [];
   _cnt2xx = 0; _cnt4xx = 0; _cnt5xx = 0;
@@ -2292,6 +2310,12 @@ async function startRun() {
                 : `Bajarildi — ${s.successful} muvaffaqiyatli, ${s.failed} xatolik`);
     document.getElementById('runBtn').disabled  = false;
     document.getElementById('stopBtn').disabled = true;
+    addToHistory({ ..._histConfig, timestamp: Date.now(),
+      summary: { total: s.total, successful: s.successful, failed: s.failed, avg_time: s.avg_time },
+      results: allResults.map(r => ({...r,
+        response: (() => { const rs = typeof r.response==='string'?r.response:JSON.stringify(r.response||''); return rs.length>8000?rs.slice(0,8000)+'…':rs; })()
+      }))
+    });
   });
 
   src.onerror = () => { if (currentSrc) { src.close(); currentSrc = null; } };
@@ -2570,6 +2594,7 @@ function newRequest() {
   updateBodyHL();
   _savedSnapshot = null;
   btnSave.disabled = true;
+  updateReqTitle();
   document.getElementById('url').focus();
 }
 
@@ -2601,6 +2626,7 @@ function loadRequest(rid) {
   updateBodyHL();
   updateBeautifyVisibility();
   markSaved();
+  updateReqTitle();
 }
 
 
@@ -2673,6 +2699,7 @@ async function confirmSave() {
     closeSaveModal();
     await loadDB();
     markSaved();
+    updateReqTitle();
     showToast('"' + name + '" saqlandi', 'success');
   } catch(err) {
     showToast('Saqlashda xatolik: ' + err.message, 'error');
@@ -2858,6 +2885,49 @@ async function duplicateReq(rid) {
     await loadDB();
     showToast('"' + copy.name + '" yaratildi', 'success');
   }
+}
+
+function updateReqTitle() {
+  const sep = document.getElementById('reqNameSep');
+  const lbl = document.getElementById('reqNameLbl');
+  if (!sep || !lbl) return;
+  if (!saveEditId) { sep.style.display = 'none'; lbl.style.display = 'none'; return; }
+  const r = db.requests.find(x => x.id === saveEditId);
+  if (!r) { sep.style.display = 'none'; lbl.style.display = 'none'; return; }
+  sep.style.display = '';
+  lbl.style.display = '';
+  lbl.textContent = r.name;
+}
+
+function startRenameReqTitle() {
+  if (!saveEditId) return;
+  const lbl = document.getElementById('reqNameLbl');
+  if (!lbl) return;
+  const old = lbl.textContent;
+  const inp = document.createElement('input');
+  inp.className = 'req-name-inp';
+  inp.value = old;
+  inp.style.width = Math.max(120, old.length * 8 + 20) + 'px';
+  lbl.replaceWith(inp);
+  inp.focus(); inp.select();
+  async function commit() {
+    const val = inp.value.trim() || old;
+    if (val !== old) {
+      await fetch('/saved/request/' + saveEditId, {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name: val }),
+      }).catch(()=>{});
+      const r = db.requests.find(x => x.id === saveEditId);
+      if (r) r.name = val;
+      renderTree();
+    }
+    updateReqTitle();
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { inp.value = old; inp.blur(); }
+  });
 }
 
 function startRenameReq(rid) {
@@ -3463,11 +3533,57 @@ function renderHistory() { renderSbHistList(); }   // backward compat
 function loadFromHistory(jsonStr) {
   try {
     const x = JSON.parse(jsonStr);
-    document.getElementById('method').value = x.method || 'GET';
-    document.getElementById('url').value = x.url || '';
-    updateMethodColor(); checkDirty();
+    document.getElementById('method').value        = x.method        || 'GET';
+    document.getElementById('url').value           = x.url           || '';
+    document.getElementById('authorization').value = x.authorization || '';
+    document.getElementById('body').value          = x.body          || '';
+    document.getElementById('contentType').value   = x.content_type  || 'application/json';
+    document.getElementById('bodyType').value      = x.body_type     || 'json';
+
+    document.querySelector('#paramsTable tbody').innerHTML  = '';
+    document.querySelector('#headersTable tbody').innerHTML = '';
+    (x.params  || []).forEach(p => addKvRow('paramsTable',  p.name, p.value));
+    (x.headers || []).forEach(h => addKvRow('headersTable', h.name, h.value));
+    if (!(x.params  || []).length) addKvRow('paramsTable');
+    if (!(x.headers || []).length) addKvRow('headersTable');
+
+    updateMethodColor(); updateBodyHL(); updateBeautifyVisibility();
+    activeReqId = null; saveEditId = null;
+    renderTree(); updateReqTitle();
+    _savedSnapshot = null; btnSave.disabled = false;
+
+    if (x.results && x.results.length) {
+      allResults = x.results.slice();
+      _cnt2xx = 0; _cnt4xx = 0; _cnt5xx = 0; _timeSeries = [];
+      document.getElementById('resultsList').innerHTML = '';
+      document.getElementById('timeBars').innerHTML    = '';
+      allResults.forEach(item => {
+        const st = item.status;
+        if (typeof st === 'number') {
+          if (st >= 200 && st < 300)      _cnt2xx++;
+          else if (st >= 400 && st < 500) _cnt4xx++;
+          else if (st >= 500)             _cnt5xx++;
+        }
+        renderResult(item);
+        updateTimeChart(item);
+      });
+      document.getElementById('s2xx').textContent = _cnt2xx;
+      document.getElementById('s4xx').textContent = _cnt4xx;
+      document.getElementById('s5xx').textContent = _cnt5xx;
+      const sum = x.summary || {};
+      const total = sum.total || allResults.length;
+      const succ  = sum.successful !== undefined ? sum.successful : _cnt2xx;
+      const fail  = sum.failed     !== undefined ? sum.failed     : (_cnt4xx + _cnt5xx);
+      updateStats(total, succ, fail, sum.avg_time || null);
+      updateProgress(total, total);
+      document.getElementById('progFill').className = 'prog-fill done';
+      setStatus('done', `Tarixdan — ${succ} muvaffaqiyatli, ${fail} xatolik`);
+      setFilter('all');
+      openResults();
+    }
+
     showToast('Tarixdan yuklandi', 'info');
-  } catch {}
+  } catch(e) { console.error(e); }
 }
 function deleteHistItem(id) {
   let arr = getRunHistory().filter(x => x.id !== id);
