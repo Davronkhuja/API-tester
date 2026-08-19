@@ -2848,7 +2848,7 @@ async function duplicateReq(rid) {
   if (!r) return;
   const copy = JSON.parse(JSON.stringify(r));
   delete copy.id;
-  copy.name = r.name + ' (copy)';
+  copy.name = r.name + ' Copy';
   const resp = await fetch('/saved/request', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
