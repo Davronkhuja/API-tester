@@ -3103,6 +3103,7 @@ function loadRequest(rid) {
   (r.headers || []).forEach(x => addKvRow('headersTable', x.name, x.value));
   if (!(r.params  || []).length) addKvRow('paramsTable');
   if (!(r.headers || []).length) addKvRow('headersTable');
+  syncParamsToUrl();
 
   renderTree();
   updateBodyHL();
@@ -3648,6 +3649,7 @@ function applyCurl(parsed) {
   }
 
   document.getElementById('url').value    = baseUrl;
+  syncParamsToUrl();
   document.getElementById('method').value = parsed.method || 'GET';
 
   // Headers → split out Authorization and Content-Type
@@ -4124,6 +4126,7 @@ function loadFromHistory(jsonStr) {
     (x.headers || []).forEach(h => addKvRow('headersTable', h.name, h.value));
     if (!(x.params  || []).length) addKvRow('paramsTable');
     if (!(x.headers || []).length) addKvRow('headersTable');
+    syncParamsToUrl();
 
     updateMethodColor(); updateBodyHL(); updateBeautifyVisibility();
     activeReqId = null; saveEditId = null;
