@@ -1188,6 +1188,84 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 .chevron { font-size: 9px; color: var(--light); transition: transform .18s; }
 .result-card.expanded .chevron { transform: rotate(180deg); }
 .result-body { display: none; padding: 13px; border-top: 1px solid var(--border); }
+.result-expand-btn {
+  flex-shrink: 0; padding: 3px 7px; border-radius: 6px; border: 1px solid transparent;
+  background: none; color: var(--muted); cursor: pointer; font-size: 13px; line-height: 1;
+  transition: all .15s; display: flex; align-items: center;
+}
+.result-expand-btn:hover { border-color: var(--border-d); background: var(--border); color: var(--text); }
+
+/* ── RESULT FULLSCREEN MODAL ──────────────────────────────── */
+.result-full-overlay {
+  position: fixed; inset: 0; z-index: 950;
+  background: rgba(0,0,0,.72);
+  display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(5px);
+}
+.result-full-overlay.open { display: flex; }
+.result-full-modal {
+  background: var(--bg);
+  border: 1px solid var(--border-d);
+  border-radius: 14px;
+  width: min(1100px, 97vw);
+  height: min(90vh, 920px);
+  display: flex; flex-direction: column;
+  box-shadow: 0 36px 90px rgba(0,0,0,.6);
+  overflow: hidden;
+  animation: slideUpModal .2s cubic-bezier(.34,1.26,.64,1);
+}
+.result-full-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0; background: var(--surface);
+}
+.result-full-title { flex: 1; font-size: 13px; font-weight: 700; color: var(--text); overflow: hidden; }
+.result-full-url-chip {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 500px;
+}
+.result-full-body {
+  flex: 1; overflow-y: auto; padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.result-full-section { display: flex; flex-direction: column; gap: 6px; }
+.result-full-label {
+  font-size: 10.5px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .6px;
+}
+.result-full-urlbox {
+  font-family: var(--mono); font-size: 12.5px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border-d);
+  border-radius: 8px; word-break: break-all; color: var(--text); line-height: 1.6;
+}
+pre.result-full-pre {
+  background: #111c2e; color: #e2e8f0;
+  padding: 18px 20px; border-radius: 10px;
+  overflow: auto; flex: 1; min-height: 0;
+  font-family: var(--mono); font-size: 13px; line-height: 1.8;
+  white-space: pre-wrap; word-break: break-word; margin: 0;
+  border: 1px solid rgba(255,255,255,.05);
+}
+.result-full-hdrtbl {
+  width: 100%; border-collapse: collapse; font-size: 12.5px;
+}
+.result-full-hdrtbl td {
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
+  vertical-align: top; line-height: 1.5;
+}
+.result-full-hdrtbl td:first-child {
+  font-weight: 600; color: var(--muted); white-space: nowrap;
+  min-width: 160px; max-width: 220px;
+}
+.result-full-hdrtbl td:last-child { color: var(--text); word-break: break-all; }
+.result-full-hdrtbl tr:last-child td { border-bottom: none; }
+.result-full-copy-btn {
+  padding: 5px 14px; font-size: 12px; font-weight: 600;
+  background: var(--surface); border: 1px solid var(--border-d);
+  border-radius: 7px; cursor: pointer; color: var(--muted); transition: all .15s;
+}
+.result-full-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+.result-full-copy-btn.copied { color: var(--success); border-color: var(--success); }
 .result-card.expanded .result-body { display: block; }
 .result-fl { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 9px 0 4px; }
 .result-fl:first-child { margin-top: 0; }
@@ -2167,6 +2245,38 @@ pre.resp-pre {
 </div>
 <div class="curl-backdrop" id="curlBackdrop" onclick="closeCurlDrawer()" style="display:none;position:fixed;inset:0;z-index:299;"></div>
 
+<!-- ── RESULT FULLSCREEN MODAL ────────────────────────────── -->
+<div class="result-full-overlay" id="resultFullOverlay" onclick="if(event.target===this)closeResultFull()">
+  <div class="result-full-modal">
+    <div class="result-full-header">
+      <span id="rfStatusBadge" class="status-badge" style="flex-shrink:0"></span>
+      <div class="result-full-title">
+        <div id="rfNum" style="font-size:11px;color:var(--muted);margin-bottom:2px"></div>
+        <div class="result-full-url-chip" id="rfUrl"></div>
+      </div>
+      <span id="rfTime" style="font-size:12px;color:var(--muted);white-space:nowrap;margin-right:4px"></span>
+      <button class="result-full-copy-btn" id="rfCopyBtn" onclick="copyResultFull()">Nusxa</button>
+      <button class="rp-close" onclick="closeResultFull()" title="Yopish">×</button>
+    </div>
+    <div class="result-full-body" id="rfBody">
+      <div class="result-full-section">
+        <div class="result-full-label">URL</div>
+        <div class="result-full-urlbox" id="rfUrlBox"></div>
+      </div>
+      <div class="result-full-section" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div class="result-full-label">RESPONSE</div>
+        <pre class="result-full-pre" id="rfPre"></pre>
+      </div>
+      <div class="result-full-section" id="rfHdrSection" style="display:none">
+        <div class="result-full-label" id="rfHdrLabel">HEADERS</div>
+        <div style="background:var(--surface);border:1px solid var(--border-d);border-radius:8px;overflow:hidden">
+          <table class="result-full-hdrtbl"><tbody id="rfHdrTbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── ENV MODAL ───────────────────────────────────────────── -->
 <div class="env-modal-overlay" id="envModalOverlay" onclick="if(event.target===this)closeEnvModal()">
   <div class="env-modal" id="envModal">
@@ -2235,6 +2345,7 @@ pre.resp-pre {
 let dataRows     = [];
 let allResults   = [];
 let currentFilter = 'all';
+const _resultItems = new Map();
 let currentJobId  = null;
 let currentSrc    = null;
 
@@ -2627,11 +2738,13 @@ function renderResult(item) {
     <div class="resp-hdr-toggle" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=(this.nextElementSibling.classList.contains('open')?'▾ ':'▸ ')+'Headers ('+${hdrKeys.length}+')'">▸ Headers (${hdrKeys.length})</div>
     <table class="resp-hdr-table"><tbody>${hdrRows}</tbody></table>` : '';
 
+  _resultItems.set(item.index, item);
+
   const card = document.createElement('div');
   card.className = 'result-card ' + (ok ? 'is-ok' : 'is-err');
   card.dataset.ok = ok ? '1' : '0';
   card.innerHTML = `
-    <div class="result-head" onclick="this.parentElement.classList.toggle('expanded')">
+    <div class="result-head" onclick="if(!event.target.closest('.result-expand-btn'))this.parentElement.classList.toggle('expanded')">
       <span class="result-num">#${item.index}</span>
       <span class="status-badge ${badgeClass(item.status)}">${eh(String(item.status))}</span>
       ${retryBadge}
@@ -2639,6 +2752,9 @@ function renderResult(item) {
       <span class="result-time">${item.time.toFixed(3)}s</span>
       <span class="result-sz">${fmtBytes(item.size)}</span>
       <span class="chevron">▼</span>
+      <button class="result-expand-btn" title="Katta ekranda ochish" onclick="openResultFull(${item.index})">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 1.5h4v4M13.5 1.5L8 7M5.5 12.5h-4v-4M.5 12.5L6 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
     <div class="result-body">
       <div class="result-fl">URL</div>
@@ -2657,6 +2773,50 @@ function copyResp(btn) {
   navigator.clipboard.writeText(btn.nextElementSibling.textContent).then(() => {
     btn.textContent = 'Copied!'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+function openResultFull(idx) {
+  const item = _resultItems.get(idx);
+  if (!item) return;
+  const ok = typeof item.status === 'number' && item.status >= 200 && item.status < 300;
+  const respStr = typeof item.response === 'object'
+    ? JSON.stringify(item.response, null, 2) : String(item.response ?? '');
+  const hdrs = item.resp_headers || {};
+  const hdrKeys = Object.keys(hdrs);
+
+  document.getElementById('rfStatusBadge').textContent = String(item.status);
+  document.getElementById('rfStatusBadge').className = 'status-badge ' + badgeClass(item.status);
+  document.getElementById('rfNum').textContent = '#' + item.index;
+  document.getElementById('rfUrl').textContent = item.url;
+  document.getElementById('rfTime').textContent = item.time.toFixed(3) + 's · ' + fmtBytes(item.size);
+  document.getElementById('rfUrlBox').textContent = item.url;
+  document.getElementById('rfPre').innerHTML = syntaxHL(respStr);
+  document.getElementById('rfCopyBtn').textContent = 'Nusxa';
+  document.getElementById('rfCopyBtn').className = 'result-full-copy-btn';
+
+  const hdrSection = document.getElementById('rfHdrSection');
+  if (hdrKeys.length) {
+    document.getElementById('rfHdrLabel').textContent = 'HEADERS (' + hdrKeys.length + ')';
+    document.getElementById('rfHdrTbody').innerHTML =
+      hdrKeys.map(k => `<tr><td>${eh(k)}</td><td>${eh(String(hdrs[k]))}</td></tr>`).join('');
+    hdrSection.style.display = '';
+  } else {
+    hdrSection.style.display = 'none';
+  }
+  document.getElementById('resultFullOverlay').classList.add('open');
+}
+
+function closeResultFull() {
+  document.getElementById('resultFullOverlay').classList.remove('open');
+}
+
+function copyResultFull() {
+  const pre = document.getElementById('rfPre');
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    const btn = document.getElementById('rfCopyBtn');
+    btn.textContent = 'Nusxalandi ✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Nusxa'; btn.classList.remove('copied'); }, 1500);
   });
 }
 
@@ -3495,6 +3655,7 @@ function toggleTheme() {
 // ════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (document.getElementById('resultFullOverlay')?.classList.contains('open')) { closeResultFull(); return; }
     if (document.getElementById('envModalOverlay')?.classList.contains('open')) { closeEnvModal(); return; }
   }
   const mod = e.metaKey || e.ctrlKey;
