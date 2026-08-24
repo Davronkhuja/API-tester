@@ -2266,6 +2266,9 @@ pre.resp-pre {
       </div>
       <span id="rfTime" style="font-size:12px;color:var(--muted);white-space:nowrap;margin-right:4px"></span>
       <button class="result-full-copy-btn" id="rfCopyBtn" onclick="copyResultFull()">Nusxa</button>
+      <button class="result-full-copy-btn" onclick="downloadResultTxt()" title="TXT yuklab olish">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="vertical-align:-2px;margin-right:4px"><path d="M6.5 1v8M3.5 6.5l3 3 3-3M1.5 11.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>TXT
+      </button>
       <button class="rp-close" onclick="closeResultFull()" title="Yopish">×</button>
     </div>
     <div class="result-full-body" id="rfBody">
@@ -2834,6 +2837,27 @@ function copyResultFull() {
     btn.textContent = 'Nusxalandi ✓'; btn.classList.add('copied');
     setTimeout(() => { btn.textContent = 'Nusxa'; btn.classList.remove('copied'); }, 1500);
   });
+}
+
+function downloadResultTxt() {
+  const pre   = document.getElementById('rfPre');
+  const num   = document.getElementById('rfNum').textContent.replace('#','').trim();
+  const url   = document.getElementById('rfUrlBox').textContent;
+  const badge = document.getElementById('rfStatusBadge').textContent;
+  const time  = document.getElementById('rfTime').textContent;
+  const text  = [
+    'STATUS : ' + badge,
+    'TIME   : ' + time,
+    'URL    : ' + url,
+    '',
+    '── RESPONSE ──────────────────────────────────',
+    pre.textContent,
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  a.download = 'response_' + num + '_' + badge + '.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function setFilter(f) {
