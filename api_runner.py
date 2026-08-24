@@ -1226,13 +1226,23 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .result-full-body {
   flex: 1; overflow-y: auto; padding: 22px 24px;
-  display: flex; flex-direction: column; gap: 18px;
 }
-.result-full-section { display: flex; flex-direction: column; gap: 6px; }
+.result-full-section { margin-bottom: 18px; }
 .result-full-label {
   font-size: 10.5px; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .6px;
+  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px;
 }
+.result-full-hdr-toggle {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  user-select: none; margin-bottom: 6px;
+}
+.result-full-hdr-toggle:hover .result-full-label { color: var(--text); }
+.result-full-hdr-toggle .rft-chevron {
+  font-size: 8px; color: var(--muted); transition: transform .18s;
+}
+.result-full-hdr-toggle.open .rft-chevron { transform: rotate(90deg); }
+.result-full-hdr-body { display: none; }
+.result-full-hdr-toggle.open + .result-full-hdr-body { display: block; }
 .result-full-urlbox {
   font-family: var(--mono); font-size: 12.5px; padding: 10px 14px;
   background: var(--surface); border: 1px solid var(--border-d);
@@ -1241,7 +1251,7 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 pre.result-full-pre {
   background: #111c2e; color: #e2e8f0;
   padding: 18px 20px; border-radius: 10px;
-  overflow: auto; flex: 1; min-height: 0;
+  overflow: auto; height: auto; max-height: none;
   font-family: var(--mono); font-size: 13px; line-height: 1.8;
   white-space: pre-wrap; word-break: break-word; margin: 0;
   border: 1px solid rgba(255,255,255,.05);
@@ -2263,14 +2273,19 @@ pre.resp-pre {
         <div class="result-full-label">URL</div>
         <div class="result-full-urlbox" id="rfUrlBox"></div>
       </div>
-      <div class="result-full-section" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+      <div class="result-full-section">
         <div class="result-full-label">RESPONSE</div>
         <pre class="result-full-pre" id="rfPre"></pre>
       </div>
       <div class="result-full-section" id="rfHdrSection" style="display:none">
-        <div class="result-full-label" id="rfHdrLabel">HEADERS</div>
-        <div style="background:var(--surface);border:1px solid var(--border-d);border-radius:8px;overflow:hidden">
-          <table class="result-full-hdrtbl"><tbody id="rfHdrTbody"></tbody></table>
+        <div class="result-full-hdr-toggle open" id="rfHdrToggle" onclick="this.classList.toggle('open')">
+          <span class="rft-chevron">▶</span>
+          <span class="result-full-label" id="rfHdrLabel" style="margin-bottom:0">HEADERS</span>
+        </div>
+        <div class="result-full-hdr-body">
+          <div style="background:var(--surface);border:1px solid var(--border-d);border-radius:8px;overflow:hidden">
+            <table class="result-full-hdrtbl"><tbody id="rfHdrTbody"></tbody></table>
+          </div>
         </div>
       </div>
     </div>
@@ -2801,6 +2816,7 @@ function openResultFull(idx) {
     document.getElementById('rfHdrTbody').innerHTML =
       hdrKeys.map(k => `<tr><td>${eh(k)}</td><td>${eh(String(hdrs[k]))}</td></tr>`).join('');
     hdrSection.style.display = '';
+    document.getElementById('rfHdrToggle').classList.add('open');
   } else {
     hdrSection.style.display = 'none';
   }
