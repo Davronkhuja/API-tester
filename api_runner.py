@@ -2459,10 +2459,11 @@ function beautifyBody() {
 function addKvRow(tid, name='', value='') {
   const tbody = document.querySelector('#' + tid + ' tbody');
   const tr = document.createElement('tr');
+  const delCb = tid === 'paramsTable' ? "this.closest('tr').remove();syncParamsToUrl()" : "this.closest('tr').remove()";
   tr.innerHTML = `
     <td><input class="kv-name" value="${ea(name)}" placeholder="key"></td>
     <td><input class="kv-val"  value="${ea(value)}" placeholder="{{column}}"></td>
-    <td class="kv-del" onclick="this.closest('tr').remove()">×</td>`;
+    <td class="kv-del" onclick="${delCb}">×</td>`;
   tbody.appendChild(tr);
 }
 
@@ -2475,6 +2476,41 @@ function getKv(tid) {
 addKvRow('paramsTable');
 addKvRow('headersTable');
 
+// ── Params ↔ URL bidirectional sync ──────────────────────────
+let _syncingParams = false;
+
+function syncParamsToUrl() {
+  if (_syncingParams) return;
+  _syncingParams = true;
+  try {
+    const inp  = document.getElementById('url');
+    const base = inp.value.split('?')[0];
+    const rows = getKv('paramsTable').filter(p => p.name);
+    inp.value  = rows.length
+      ? base + '?' + rows.map(p => encodeURIComponent(p.name) + '=' + encodeURIComponent(p.value)).join('&')
+      : base;
+    filterUrlHistory(inp.value);
+  } finally { _syncingParams = false; }
+}
+
+function syncUrlToParams() {
+  if (_syncingParams) return;
+  const raw  = document.getElementById('url').value;
+  const qIdx = raw.indexOf('?');
+  if (qIdx < 0) return;
+  _syncingParams = true;
+  try {
+    const params = [];
+    new URLSearchParams(raw.slice(qIdx + 1)).forEach((v, k) => params.push({name: k, value: v}));
+    const tbody = document.querySelector('#paramsTable tbody');
+    tbody.innerHTML = '';
+    params.forEach(p => addKvRow('paramsTable', p.name, p.value));
+    if (!params.length) addKvRow('paramsTable');
+  } finally { _syncingParams = false; }
+}
+
+document.getElementById('paramsTable').addEventListener('input', syncParamsToUrl);
+document.getElementById('url').addEventListener('input', syncUrlToParams);
 
 // ════════════════════════════════════════════════════════════
 // FILE UPLOAD
