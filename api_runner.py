@@ -2619,8 +2619,10 @@ function toggleCount() {
 }
 
 async function startRun() {
-  const url = document.getElementById('url').value.trim();
-  if (!url) { showToast('URL kiriting!', 'warn'); return; }
+  const urlRaw = document.getElementById('url').value.trim();
+  if (!urlRaw) { showToast('URL kiriting!', 'warn'); return; }
+  // Strip query string from URL — params are sent separately via params table
+  const url = urlRaw.split('?')[0];
 
   let rows = dataRows.length ? dataRows : [{}];  // faylsiz — bitta bo'sh qator
   if (document.getElementById('rowsMode').value === 'custom') {
@@ -4376,11 +4378,12 @@ function buildCurl() {
 
   if (!rawUrl) return null;
 
-  // Build URL with query params
-  let url = rawUrl;
+  // Build URL: use base URL (strip existing query), then append params from table
+  const baseUrl = rawUrl.split('?')[0];
+  let url = baseUrl;
   if (params.length) {
     const qs = params.map(p => encodeURIComponent(p.name) + '=' + encodeURIComponent(p.value)).join('&');
-    url += (url.includes('?') ? '&' : '?') + qs;
+    url += '?' + qs;
   }
 
   const esc = s => s.replace(/'/g, "'\\''");
