@@ -1016,6 +1016,34 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 }
 .text-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,126,247,.1); }
 .field-hint { font-size: 11.5px; color: var(--light); margin-top: 5px; }
+
+/* ── AUTH TAB ─────────────────────────────────────────────── */
+.auth-type-row { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+.auth-type-btn {
+  padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-d);
+  background: none; color: var(--muted); cursor: pointer; font-size: 12.5px;
+  font-weight: 600; transition: all .15s;
+}
+.auth-type-btn.active { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
+.auth-type-btn:hover:not(.active) { color: var(--text); border-color: rgba(255,255,255,.2); }
+.auth-panel { display: none; }
+.auth-panel.show { display: block; }
+.auth-basic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.auth-pass-wrap { position: relative; }
+.auth-pass-wrap .text-input { padding-right: 40px; }
+.auth-eye-btn {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  padding: 3px; line-height: 1; transition: color .15s;
+}
+.auth-eye-btn:hover { color: var(--text); }
+.auth-basic-preview {
+  margin-top: 10px; padding: 9px 13px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+  word-break: break-all; line-height: 1.6;
+}
+
 .body-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 11px; }
 .select-input {
   width: 100%; padding: 8px 10px;
@@ -2062,9 +2090,58 @@ pre.resp-pre {
 
       <!-- TAB: AUTH -->
       <div id="tab-auth" class="tab-panel">
-        <div class="field-label">Authorization header</div>
-        <input id="authorization" class="text-input" placeholder="Bearer eyJhbGci... yoki Basic xxx">
-        <div class="field-hint">Yozilgan qiymat to'g'ridan-to'g'ri Authorization headeriga qo'yiladi. {{token}} kabi o'zgaruvchilar ishlaydi.</div>
+        <!-- Auth type selector -->
+        <div class="auth-type-row">
+          <button class="auth-type-btn active" data-atype="none"   onclick="setAuthType('none')">Yo'q</button>
+          <button class="auth-type-btn"        data-atype="bearer" onclick="setAuthType('bearer')">Bearer Token</button>
+          <button class="auth-type-btn"        data-atype="basic"  onclick="setAuthType('basic')">Basic Auth</button>
+          <button class="auth-type-btn"        data-atype="custom" onclick="setAuthType('custom')">Boshqa</button>
+        </div>
+
+        <!-- None -->
+        <div id="auth-none" class="auth-panel show">
+          <div class="field-hint">Authorization headeri so'rovga qo'shilmaydi.</div>
+        </div>
+
+        <!-- Bearer Token -->
+        <div id="auth-bearer" class="auth-panel">
+          <div class="field-label">Token</div>
+          <input id="authBearerToken" class="text-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." oninput="updateBearerAuth()">
+          <div class="field-hint">"Bearer " prefiksi avtomatik qo'shiladi. {{token}} kabi o'zgaruvchilar ishlaydi.</div>
+        </div>
+
+        <!-- Basic Auth -->
+        <div id="auth-basic" class="auth-panel">
+          <div class="auth-basic-grid">
+            <div>
+              <div class="field-label">Login (username)</div>
+              <input id="authBasicUser" class="text-input" placeholder="admin" autocomplete="off" oninput="updateBasicAuth()">
+            </div>
+            <div>
+              <div class="field-label">Parol (password)</div>
+              <div class="auth-pass-wrap">
+                <input id="authBasicPass" class="text-input" type="password" placeholder="••••••••" autocomplete="off" oninput="updateBasicAuth()">
+                <button class="auth-eye-btn" onclick="toggleAuthPassVis()" title="Ko'rsatish/Yashirish" type="button">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" id="authEyeIco">
+                    <path d="M1.5 8C1.5 8 4 3.5 8 3.5C12 3.5 14.5 8 14.5 8C14.5 8 12 12.5 8 12.5C4 12.5 1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.3"/>
+                    <circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="auth-basic-preview" id="authBasicPreview">Login va parol kiriting...</div>
+        </div>
+
+        <!-- Custom -->
+        <div id="auth-custom" class="auth-panel">
+          <div class="field-label">Authorization header qiymati</div>
+          <input id="authCustomVal" class="text-input" placeholder="Bearer eyJhbGci... yoki Basic dXNlcjpwYXNz" oninput="updateCustomAuth()">
+          <div class="field-hint">To'g'ridan-to'g'ri Authorization headeriga qo'yiladi. {{token}} ishlaydi.</div>
+        </div>
+
+        <!-- Hidden source of truth (read by all existing code) -->
+        <input type="hidden" id="authorization">
       </div>
 
       <!-- TAB: BODY -->
@@ -3066,7 +3143,7 @@ function newRequest() {
   saveEditId  = null;
   document.getElementById('method').value        = 'POST';
   document.getElementById('url').value           = '';
-  document.getElementById('authorization').value = '';
+  detectAndSetAuth('');
   document.getElementById('body').value          = '';
   document.getElementById('contentType').value   = 'application/json';
   document.getElementById('bodyType').value      = 'json';
@@ -3094,7 +3171,7 @@ function loadRequest(rid) {
 
   document.getElementById('method').value        = r.method        || 'GET';
   document.getElementById('url').value           = r.url           || '';
-  document.getElementById('authorization').value = r.authorization || '';
+  detectAndSetAuth(r.authorization || '');
   document.getElementById('body').value          = r.body          || '';
   document.getElementById('contentType').value   = r.content_type  || 'application/json';
   document.getElementById('bodyType').value      = r.body_type     || 'json';
@@ -3660,7 +3737,7 @@ function applyCurl(parsed) {
   (parsed.headers || []).forEach(h => {
     const low = h.name.toLowerCase();
     if (low === 'authorization') {
-      document.getElementById('authorization').value = h.value;
+      detectAndSetAuth(h.value);
       hasAuth = true;
     } else if (low === 'content-type') {
       document.getElementById('contentType').value = h.value;
@@ -3671,7 +3748,7 @@ function applyCurl(parsed) {
   if (!document.querySelector('#headersTable tbody tr')) addKvRow('headersTable');
 
   if (parsed.auth && !hasAuth) {
-    document.getElementById('authorization').value = parsed.auth;
+    detectAndSetAuth(parsed.auth);
   }
 
   // Body
@@ -3705,6 +3782,78 @@ initTheme();
 updateMethodColor();
 renderHistory();
 addKvRow('multipartTable');
+
+// ════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════
+function setAuthType(type) {
+  ['none','bearer','basic','custom'].forEach(t => {
+    document.getElementById('auth-' + t).classList.toggle('show', t === type);
+    document.querySelector('[data-atype="' + t + '"]').classList.toggle('active', t === type);
+  });
+  if (type === 'none') {
+    document.getElementById('authorization').value = '';
+  } else if (type === 'bearer') {
+    updateBearerAuth();
+  } else if (type === 'basic') {
+    updateBasicAuth();
+  } else if (type === 'custom') {
+    document.getElementById('authorization').value = document.getElementById('authCustomVal').value.trim();
+  }
+  checkDirty();
+}
+
+function updateBearerAuth() {
+  const tok = document.getElementById('authBearerToken').value.trim();
+  document.getElementById('authorization').value = tok ? 'Bearer ' + tok : '';
+  checkDirty();
+}
+
+function updateBasicAuth() {
+  const user = document.getElementById('authBasicUser').value;
+  const pass = document.getElementById('authBasicPass').value;
+  const preview = document.getElementById('authBasicPreview');
+  if (user || pass) {
+    const encoded = btoa(unescape(encodeURIComponent(user + ':' + pass)));
+    document.getElementById('authorization').value = 'Basic ' + encoded;
+    preview.textContent = 'Authorization: Basic ' + encoded;
+  } else {
+    document.getElementById('authorization').value = '';
+    preview.textContent = 'Login va parol kiriting...';
+  }
+  checkDirty();
+}
+
+function updateCustomAuth() {
+  document.getElementById('authorization').value = document.getElementById('authCustomVal').value.trim();
+  checkDirty();
+}
+
+function toggleAuthPassVis() {
+  const inp = document.getElementById('authBasicPass');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function detectAndSetAuth(val) {
+  if (!val) {
+    setAuthType('none');
+  } else if (val.startsWith('Bearer ')) {
+    document.getElementById('authBearerToken').value = val.slice(7);
+    setAuthType('bearer');
+  } else if (val.startsWith('Basic ')) {
+    try {
+      const decoded = decodeURIComponent(escape(atob(val.slice(6))));
+      const ci = decoded.indexOf(':');
+      document.getElementById('authBasicUser').value = ci >= 0 ? decoded.slice(0, ci) : decoded;
+      document.getElementById('authBasicPass').value = ci >= 0 ? decoded.slice(ci + 1) : '';
+    } catch(e) {}
+    setAuthType('basic');
+  } else {
+    document.getElementById('authCustomVal').value = val;
+    setAuthType('custom');
+    document.getElementById('authorization').value = val;
+  }
+}
 
 // ════════════════════════════════════════════════════════════
 // METHOD BADGE COLOR
@@ -4117,7 +4266,7 @@ function loadFromHistory(jsonStr) {
     const x = JSON.parse(jsonStr);
     document.getElementById('method').value        = x.method        || 'GET';
     document.getElementById('url').value           = x.url           || '';
-    document.getElementById('authorization').value = x.authorization || '';
+    detectAndSetAuth(x.authorization || '');
     document.getElementById('body').value          = x.body          || '';
     document.getElementById('contentType').value   = x.content_type  || 'application/json';
     document.getElementById('bodyType').value      = x.body_type     || 'json';
@@ -4488,10 +4637,11 @@ function checkDirty() {
 }
 
 // Watch all relevant inputs
-['method','url','authorization','body','contentType','bodyType'].forEach(id => {
+['method','url','body','contentType','bodyType'].forEach(id => {
   document.getElementById(id).addEventListener('input',  checkDirty);
   document.getElementById(id).addEventListener('change', checkDirty);
 });
+// Auth fields trigger checkDirty via setAuthType/updateBearerAuth/etc.
 // Watch KV tables (params & headers)
 ['paramsTable','headersTable'].forEach(tid => {
   document.getElementById(tid).addEventListener('input',  checkDirty);
