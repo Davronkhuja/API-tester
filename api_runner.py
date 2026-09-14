@@ -1018,14 +1018,7 @@ input,select,textarea,button { font-family: inherit; font-size: 14px; }
 .field-hint { font-size: 11.5px; color: var(--light); margin-top: 5px; }
 
 /* ── AUTH TAB ─────────────────────────────────────────────── */
-.auth-type-row { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
-.auth-type-btn {
-  padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border-d);
-  background: none; color: var(--muted); cursor: pointer; font-size: 12.5px;
-  font-weight: 600; transition: all .15s;
-}
-.auth-type-btn.active { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); }
-.auth-type-btn:hover:not(.active) { color: var(--text); border-color: rgba(255,255,255,.2); }
+.auth-type-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
 .auth-panel { display: none; }
 .auth-panel.show { display: block; }
 .auth-basic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -2092,10 +2085,13 @@ pre.resp-pre {
       <div id="tab-auth" class="tab-panel">
         <!-- Auth type selector -->
         <div class="auth-type-row">
-          <button class="auth-type-btn active" data-atype="none"   onclick="setAuthType('none')">Yo'q</button>
-          <button class="auth-type-btn"        data-atype="bearer" onclick="setAuthType('bearer')">Bearer Token</button>
-          <button class="auth-type-btn"        data-atype="basic"  onclick="setAuthType('basic')">Basic Auth</button>
-          <button class="auth-type-btn"        data-atype="custom" onclick="setAuthType('custom')">Boshqa</button>
+          <span class="field-label" style="margin:0;white-space:nowrap">Auth turi</span>
+          <select id="authTypeSelect" class="select-input" style="width:auto;min-width:160px" onchange="setAuthType(this.value)">
+            <option value="none">Yo'q</option>
+            <option value="bearer">Bearer Token</option>
+            <option value="basic">Basic Auth</option>
+            <option value="custom">Boshqa</option>
+          </select>
         </div>
 
         <!-- None -->
@@ -3789,8 +3785,9 @@ addKvRow('multipartTable');
 function setAuthType(type) {
   ['none','bearer','basic','custom'].forEach(t => {
     document.getElementById('auth-' + t).classList.toggle('show', t === type);
-    document.querySelector('[data-atype="' + t + '"]').classList.toggle('active', t === type);
   });
+  const sel = document.getElementById('authTypeSelect');
+  if (sel && sel.value !== type) sel.value = type;
   if (type === 'none') {
     document.getElementById('authorization').value = '';
   } else if (type === 'bearer') {
