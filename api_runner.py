@@ -3065,7 +3065,6 @@ function renderTree() {
           <span class="sb-chevron">${isOpen ? '▾' : '▸'}</span>
           <span class="sb-folder-ico">📁</span>
           <span class="sb-folder-name" id="fn-${ea(folder.id)}">${eh(folder.name)}</span>
-          <span class="sb-folder-count">${folderReqs.length}</span>
           <div class="sb-folder-acts">
             <button class="sb-act" onclick="event.stopPropagation();showFolderMenu(event,'${ea(folder.id)}')" title="Amallar">···</button>
           </div>
