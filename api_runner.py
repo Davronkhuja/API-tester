@@ -1327,6 +1327,38 @@ pre.resp-pre {
 .j-bool { color: #f472b6; }
 .j-null { color: #f472b6; opacity: .7; }
 
+/* ── COLLECTION RUNNER ────────────────────────────────────── */
+.coll-run-wrap { margin-top: 12px; border: 1px solid var(--border-d); border-radius: 10px; overflow: hidden; }
+.coll-run-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.coll-run-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.coll-run-list { max-height: 220px; overflow-y: auto; }
+.coll-run-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.coll-run-item:last-child { border-bottom: none; }
+.coll-run-item input[type=checkbox] { flex-shrink: 0; accent-color: var(--primary); }
+.cri-method {
+  font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  background: var(--bg); color: var(--muted); flex-shrink: 0;
+}
+.cri-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cri-status { font-size: 10.5px; font-family: var(--mono); flex-shrink: 0; }
+.coll-run-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--surface); border-top: 1px solid var(--border);
+}
+.coll-run-check-all { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+
+/* ── RUN COMPARISON ───────────────────────────────────────── */
+.cmp-url { font-family: var(--mono); font-size: 11px; color: var(--muted); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cmpTable td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+#cmpTable tr:last-child td { border-bottom: none; }
+#cmpTable tr:hover td { background: var(--surface); }
+
 /* ── EMPTY ────────────────────────────────────────────────── */
 .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); }
 .empty-ico { font-size: 36px; margin-bottom: 8px; opacity: .45; }
@@ -2210,6 +2242,25 @@ pre.resp-pre {
         <div id="previewMore" class="preview-more hidden"></div>
       </div>
 
+      <input type="file" id="collRunFile" accept=".json" style="display:none" onchange="loadCollectionForRun(this.files[0])">
+      <button class="btn btn-ghost btn-sm" style="margin:8px 0;width:100%;font-size:12px" onclick="document.getElementById('collRunFile').click()">
+        📋 Postman kolleksiyasini yuklash va ishga tushirish
+      </button>
+
+      <div class="coll-run-wrap" id="collRunWrap" style="display:none">
+        <div class="coll-run-header">
+          <span class="coll-run-title" id="collRunTitle">Kolleksiya: 0 so'rov</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearCollRun()">✕ Yopish</button>
+        </div>
+        <div class="coll-run-list" id="collRunList"></div>
+        <div class="coll-run-footer">
+          <label class="coll-run-check-all">
+            <input type="checkbox" id="collCheckAll" checked onchange="toggleAllCollReqs(this.checked)"> Barchasini tanlash
+          </label>
+          <button class="btn btn-primary btn-sm" id="collRunBtn" onclick="runCollection()">▶ Kolleksiyani ishga tushirish</button>
+        </div>
+      </div>
+
       <div class="runner-grid">
         <div>
           <div class="field-label">Qatorlar</div>
@@ -2263,6 +2314,7 @@ pre.resp-pre {
       <span id="statusTxt" style="font-size:12px;">Tayyor</span>
     </div>
     <span class="rp-spacer"></span>
+    <button class="btn btn-ghost btn-sm" onclick="openCmpModal()" title="Runlarni taqqoslash" style="font-size:11.5px">≠ Taqqoslash</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON()">⬇ JSON</button>
     <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ CSV</button>
     <button class="rp-close" onclick="closeResults()" title="Yopish">×</button>
@@ -2796,6 +2848,7 @@ async function startRun() {
                 : `Bajarildi — ${s.successful} muvaffaqiyatli, ${s.failed} xatolik`);
     document.getElementById('runBtn').disabled  = false;
     document.getElementById('stopBtn').disabled = true;
+    saveRunSnapshot(allResults, document.getElementById('url').value.trim().split('?')[0]);
     addToHistory({ ..._histConfig, timestamp: Date.now(),
       summary: { total: s.total, successful: s.successful, failed: s.failed, avg_time: s.avg_time },
       results: allResults.map(r => ({...r,
@@ -2969,6 +3022,168 @@ function downloadResultTxt() {
   a.download = 'response_' + num + '_' + badge + '.txt';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+// ════════════════════════════════════════════════════════════
+// COLLECTION RUNNER
+// ════════════════════════════════════════════════════════════
+let _collItems   = [];
+let _collRunning = false;
+
+function loadCollectionForRun(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const col = JSON.parse(ev.target.result);
+      const items = flattenPostman(col.item || []);
+      if (!items.length) { showToast("So'rovlar topilmadi", 'warn'); return; }
+      _collItems = items.map(item => ({
+        payload: postmanReqToPayload(item, col.variable || []),
+        name: item.name || '',
+        checked: true,
+      }));
+      document.getElementById('collRunTitle').textContent = `Kolleksiya: ${_collItems.length} so'rov`;
+      renderCollList();
+      document.getElementById('collRunWrap').style.display = '';
+    } catch(e) {
+      showToast('Kolleksiya yuklash xatosi: ' + e.message, 'error');
+    }
+    document.getElementById('collRunFile').value = '';
+  };
+  reader.readAsText(file);
+}
+
+function renderCollList() {
+  document.getElementById('collRunList').innerHTML = _collItems.map((item, i) => `
+    <div class="coll-run-item" id="cri-${i}">
+      <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="_collItems[${i}].checked=this.checked">
+      <span class="cri-method">${eh(item.payload.method || 'GET')}</span>
+      <span class="cri-name" title="${ea(item.name)}">${eh(item.name)}</span>
+      <span class="cri-status" id="cris-${i}"></span>
+    </div>`).join('');
+}
+
+function toggleAllCollReqs(checked) {
+  _collItems.forEach((item, i) => {
+    item.checked = checked;
+    const cb = document.querySelector(`#cri-${i} input[type=checkbox]`);
+    if (cb) cb.checked = checked;
+  });
+}
+
+function clearCollRun() {
+  _collItems = [];
+  document.getElementById('collRunWrap').style.display = 'none';
+}
+
+async function runCollection() {
+  if (_collRunning) return;
+  const toRun = _collItems.map((item, i) => ({...item, idx: i})).filter(x => x.checked);
+  if (!toRun.length) { showToast('Hech narsa tanlanmadi', 'warn'); return; }
+  _collRunning = true;
+  const btn = document.getElementById('collRunBtn');
+  btn.disabled = true; btn.textContent = '⏳ Ishlayapti...';
+  document.getElementById('resultsList').innerHTML = '<div class="empty-state"><div class="empty-ico">⏳</div><div>Kolleksiya ishga tushirilmoqda...</div></div>';
+  _resultItems.clear(); allResults = [];
+  openResults();
+  const envVars = getActiveEnvVars();
+  let globalIdx = 1;
+  for (const item of toRun) {
+    const statusEl = document.getElementById('cris-' + item.idx);
+    if (statusEl) { statusEl.textContent = '⏳'; statusEl.style.color = ''; }
+    try {
+      const payload = { ...item.payload, env_vars: envVars, timeout: 30, ssl_verify: true };
+      const res  = await fetch('/run_one', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json();
+      const ri   = { index: globalIdx++, status: data.status, time: data.time, size: data.size,
+                     url: data.url || payload.url, response: data.response, resp_headers: data.resp_headers || {}, retries: 0 };
+      allResults.push(ri); renderResult(ri);
+      const ok = typeof data.status === 'number' && data.status >= 200 && data.status < 300;
+      if (statusEl) { statusEl.textContent = data.status; statusEl.style.color = ok ? 'var(--success)' : 'var(--error)'; }
+    } catch(e) {
+      if (statusEl) { statusEl.textContent = 'ERR'; statusEl.style.color = 'var(--error)'; }
+    }
+  }
+  _collRunning = false;
+  btn.disabled = false; btn.textContent = "▶ Kolleksiyani ishga tushirish";
+  const _ok  = allResults.filter(r => typeof r.status==='number' && r.status>=200 && r.status<300).length;
+  const _avg = allResults.length ? allResults.reduce((a,r)=>a+r.time,0)/allResults.length : null;
+  updateStats(allResults.length, _ok, allResults.length-_ok, _avg);
+  saveRunSnapshot(allResults, 'Kolleksiya: ' + toRun.length + " so'rov");
+  showToast(`Kolleksiya tugadi: ${toRun.length} so'rov`, 'success');
+}
+
+// ════════════════════════════════════════════════════════════
+// RUN COMPARISON
+// ════════════════════════════════════════════════════════════
+const RUN_HIST_KEY = 'apiRunnerRunHistory';
+
+function saveRunSnapshot(results, urlLabel) {
+  if (!results || !results.length) return;
+  const history = JSON.parse(localStorage.getItem(RUN_HIST_KEY) || '[]');
+  const snap = {
+    id:      Date.now(),
+    ts:      new Date().toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    label:   (urlLabel || 'Run').slice(0, 80),
+    count:   results.length,
+    results: results.map(r => ({ index: r.index, status: r.status, time: r.time, size: r.size, url: (r.url||'').slice(0,120) })),
+  };
+  history.unshift(snap);
+  if (history.length > 15) history.length = 15;
+  localStorage.setItem(RUN_HIST_KEY, JSON.stringify(history));
+}
+
+function openCmpModal() {
+  const history = JSON.parse(localStorage.getItem(RUN_HIST_KEY) || '[]');
+  if (history.length < 2) { showToast("Taqqoslash uchun kamida 2 ta run kerak", 'warn'); return; }
+  const sel = document.getElementById('cmpRunSel');
+  sel.innerHTML = history.slice(1).map((s, i) =>
+    `<option value="${i+1}">[${s.ts}] ${eh((s.label||'').slice(0,40))} (${s.count} ta)</option>`
+  ).join('');
+  renderCmpTable(history[0], history[1]);
+  document.getElementById('cmpOverlay').classList.add('open');
+}
+
+function closeCmpModal() {
+  document.getElementById('cmpOverlay').classList.remove('open');
+}
+
+function renderCmpFromSel() {
+  const history = JSON.parse(localStorage.getItem(RUN_HIST_KEY) || '[]');
+  const idx = parseInt(document.getElementById('cmpRunSel').value) || 1;
+  if (history[0] && history[idx]) renderCmpTable(history[0], history[idx]);
+}
+
+function renderCmpTable(curr, prev) {
+  const map = new Map();
+  (prev.results || []).forEach(r => map.set(r.index, r));
+  const rows = (curr.results || []).map(r => {
+    const old = map.get(r.index);
+    const timeDiff = old != null ? (r.time - old.time) : null;
+    const currOk = typeof r.status === 'number' && r.status >= 200 && r.status < 300;
+    const timeDiffStr = timeDiff !== null ? (timeDiff >= 0 ? `+${timeDiff.toFixed(3)}s` : `${timeDiff.toFixed(3)}s`) : '—';
+    const timeDiffColor = timeDiff === null ? '' : timeDiff > 0.05 ? 'color:var(--error)' : timeDiff < -0.05 ? 'color:var(--success)' : 'color:var(--muted)';
+    const sizeDiff = old != null ? r.size - old.size : null;
+    const sizeDiffStr = sizeDiff !== null ? (sizeDiff >= 0 ? `+${sizeDiff}B` : `${sizeDiff}B`) : '—';
+    const pathPart = (r.url||'').replace(/^https?:\/\/[^/]+/, '').slice(0, 50) || r.url || '';
+    return `<tr>
+      <td>#${r.index}</td>
+      <td class="cmp-url" title="${ea(r.url||'')}">${eh(pathPart)}</td>
+      <td>${old ? `<span style="color:var(--muted)">${old.status}</span> → ` : ''}<span style="color:${currOk?'var(--success)':'var(--error)'}">${r.status}</span></td>
+      <td>${r.time.toFixed(3)}s ${old ? `<span style="${timeDiffColor};font-size:10.5px">(${timeDiffStr})</span>` : ''}</td>
+      <td>${fmtBytes(r.size)} ${sizeDiff!==null ? `<span style="font-size:10.5px;color:var(--muted)">(${sizeDiffStr})</span>` : ''}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('cmpTbody').innerHTML = rows || `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Ma'lumot yo'q</td></tr>`;
+  const matched = (curr.results||[]).filter(r => map.has(r.index));
+  if (matched.length) {
+    const avgC = matched.reduce((a,r)=>a+r.time,0)/matched.length;
+    const avgP = matched.reduce((a,r)=>a+(map.get(r.index)?.time||0),0)/matched.length;
+    const diff = avgC - avgP;
+    document.getElementById('cmpSummary').textContent =
+      `O'rtacha: ${avgC.toFixed(3)}s (oldingi: ${avgP.toFixed(3)}s, Δ ${diff>=0?'+':''}${diff.toFixed(3)}s)`;
+  }
 }
 
 function setFilter(f) {
@@ -3881,6 +4096,7 @@ function toggleTheme() {
 // ════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (document.getElementById('cmpOverlay')?.classList.contains('open')) { closeCmpModal(); return; }
     if (document.getElementById('resultFullOverlay')?.classList.contains('open')) { closeResultFull(); return; }
     if (document.getElementById('envModalOverlay')?.classList.contains('open')) { closeEnvModal(); return; }
   }
@@ -4718,6 +4934,32 @@ document.getElementById('url').addEventListener('paste', e => {
   }
 });
 </script>
+<!-- ── COMPARISON MODAL ───────────────────────────────────── -->
+<div class="result-full-overlay" id="cmpOverlay" onclick="if(event.target===this)closeCmpModal()">
+  <div class="result-full-modal" style="width:min(900px,97vw)">
+    <div class="result-full-header">
+      <span style="font-weight:700;font-size:14px;flex-shrink:0">Runlarni taqqoslash</span>
+      <span style="font-size:12px;color:var(--muted);flex-shrink:0">Joriy ←→</span>
+      <select id="cmpRunSel" class="select-input" style="width:auto;max-width:280px;font-size:12px;flex:1" onchange="renderCmpFromSel()"></select>
+      <span id="cmpSummary" style="font-size:12px;color:var(--muted);white-space:nowrap;margin-left:8px"></span>
+      <button class="rp-close" onclick="closeCmpModal()">×</button>
+    </div>
+    <div class="result-full-body">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px" id="cmpTable">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;width:40px">#</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px">URL</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;width:130px">Status</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;width:150px">Vaqt</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;width:120px">Hajm</th>
+          </tr>
+        </thead>
+        <tbody id="cmpTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 </body>
 </html>"""
 
@@ -4906,6 +5148,69 @@ def stop_job(job_id):
         job["stop_event"].set()
         return jsonify({"ok": True})
     return jsonify({"error": "Job topilmadi"}), 404
+
+
+@app.route("/run_one", methods=["POST"])
+def run_one():
+    import time as _time
+    import requests as req_lib
+    cfg      = request.json or {}
+    url      = cfg.get("url", "").strip()
+    if not url:
+        return jsonify({"error": "no url"}), 400
+    method   = cfg.get("method", "GET").upper()
+    auth     = cfg.get("authorization", "").strip()
+    params   = {p["name"]: p["value"] for p in cfg.get("params", []) if p.get("name")}
+    headers  = {h["name"]: h["value"] for h in cfg.get("headers", []) if h.get("name")}
+    if auth:
+        headers["Authorization"] = auth
+    body      = cfg.get("body", "")
+    body_type = cfg.get("body_type", "raw")
+    ct        = cfg.get("content_type", "")
+    timeout   = float(cfg.get("timeout", 30))
+    ssl_v     = bool(cfg.get("ssl_verify", True))
+    if body and ct and "content-type" not in {k.lower() for k in headers}:
+        headers["Content-Type"] = ct
+    env = cfg.get("env_vars") or {}
+    def rv(s):
+        for k, v in env.items():
+            s = s.replace("{{" + k + "}}", str(v))
+        return s
+    url     = rv(url)
+    headers = {k: rv(v) for k, v in headers.items()}
+    params  = {k: rv(v) for k, v in params.items()}
+    body    = rv(body)
+    start = _time.perf_counter()
+    try:
+        kw = {"params": params, "headers": headers, "timeout": timeout, "verify": ssl_v}
+        if method in ("POST", "PUT", "PATCH", "DELETE") and body:
+            if body_type == "json":
+                try:    kw["json"] = json.loads(body)
+                except: kw["data"] = body
+            else:
+                kw["data"] = body
+        r       = getattr(req_lib, method.lower())(url, **kw)
+        elapsed = _time.perf_counter() - start
+        try:    resp = r.json()
+        except: resp = r.text
+        return jsonify({
+            "status":       r.status_code,
+            "time":         round(elapsed, 3),
+            "size":         len(r.content),
+            "response":     resp,
+            "resp_headers": dict(r.headers),
+            "url":          r.url,
+        })
+    except Exception as e:
+        elapsed = _time.perf_counter() - start
+        return jsonify({
+            "status":       "ERR",
+            "time":         round(elapsed, 3),
+            "size":         0,
+            "response":     str(e),
+            "resp_headers": {},
+            "url":          url,
+        })
 
 
 # ============================================================
